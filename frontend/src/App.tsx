@@ -1,16 +1,16 @@
 import React, { useState } from "react";
-import { Sidebar } from "./components/layout/Sidebar";
-import { Header } from "./components/layout/Header";
-import { HomePage } from "./components/student/HomePage";
-import { ContestDetail } from "./components/student/ContestDetail";
-import { ProblemDetail } from "./components/student/ProblemDetail";
-import { SubmissionResult } from "./components/student/SubmissionResult";
-import { InstructorDashboard } from "./components/instructor/InstructorDashboard";
-import { CreateProblem } from "./components/instructor/CreateProblem";
-import { CreateContest } from "./components/instructor/CreateContest";
-import { AdminDashboard } from "./components/admin/AdminDashboard";
-import { UserManagement } from "./components/admin/UserManagement";
-import type { UserRole } from "./data/mockData";
+import { Sidebar } from "~/components/layout/Sidebar";
+import { Header } from "~/components/layout/Header";
+import { HomePage } from "~/features/student/components/HomePage";
+import { ContestDetail } from "~/features/student/components/ContestDetail";
+import { ProblemDetail } from "~/features/student/components/ProblemDetail";
+import { SubmissionResult } from "~/features/student/components/SubmissionResult";
+import { InstructorDashboard } from "~/features/instructor/components/InstructorDashboard";
+import { CreateProblem } from "~/features/instructor/components/CreateProblem";
+import { CreateContest } from "~/features/instructor/components/CreateContest";
+import { AdminDashboard } from "~/features/admin/components/AdminDashboard";
+import { UserManagement } from "~/features/admin/components/UserManagement";
+import type { UserRole } from "~/lib/mock-data";
 
 export default function App() {
     const [darkMode, setDarkMode] = useState(false);
@@ -77,19 +77,19 @@ export default function App() {
     }, [userRole]);
 
     return (
-        <div className="flex h-screen bg-white">
+        <div className="flex h-screen bg-white dark:bg-gray-900">
             <Sidebar currentPage={currentPage} onNavigate={handleNavigate} userRole={userRole} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Header darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
 
-                <main className="flex-1 overflow-y-auto bg-gray-50">
-                    <div className="max-w-7xl mx-auto px-12 py-16">{renderPage()}</div>
+                <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+                    <div className="max-w-7xl mx-auto px-6 py-6">{renderPage()}</div>
                 </main>
 
                 {/* Role Switcher for Demo */}
                 <div className="fixed bottom-8 right-8 z-50">
-                    <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-2xl p-6">
+                    <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-6">
                         <p className="text-xs text-gray-500 mb-4 font-semibold uppercase tracking-wider">
                             Demo: Switch Role
                         </p>
@@ -98,7 +98,7 @@ export default function App() {
                                 onClick={() => setUserRole("student")}
                                 className={`px-5 py-2.5 rounded-xl text-sm transition-all font-semibold ${
                                     userRole === "student"
-                                        ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg"
+                                        ? "bg-linear-to-r from-red-500 to-red-600 text-white shadow-lg"
                                         : "bg-gray-100 text-gray-900 hover:bg-gray-200"
                                 }`}
                             >
@@ -108,7 +108,7 @@ export default function App() {
                                 onClick={() => setUserRole("instructor")}
                                 className={`px-5 py-2.5 rounded-xl text-sm transition-all font-semibold ${
                                     userRole === "instructor"
-                                        ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg"
+                                        ? "bg-linear-to-r from-red-500 to-red-600 text-white shadow-lg"
                                         : "bg-gray-100 text-gray-900 hover:bg-gray-200"
                                 }`}
                             >
@@ -118,7 +118,7 @@ export default function App() {
                                 onClick={() => setUserRole("admin")}
                                 className={`px-5 py-2.5 rounded-xl text-sm transition-all font-semibold ${
                                     userRole === "admin"
-                                        ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg"
+                                        ? "bg-linear-to-r from-red-500 to-red-600 text-white shadow-lg"
                                         : "bg-gray-100 text-gray-900 hover:bg-gray-200"
                                 }`}
                             >
@@ -131,4 +131,3 @@ export default function App() {
         </div>
     );
 }
-

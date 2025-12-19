@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Input, TextArea } from "../ui/Input";
-import { Badge } from "../ui/Badge";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { Input, TextArea } from "~/components/ui/Input";
+import { Badge } from "~/components/ui/Badge";
 import { ArrowLeft, Plus, Trash2, Search } from "lucide-react";
-import { mockProblems } from "../../data/mockData";
+import { mockProblems } from "~/lib/mock-data";
 
 interface CreateContestProps {
     onNavigate: (page: string) => void;

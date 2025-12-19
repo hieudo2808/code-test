@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { DifficultyBadge, StatusBadge } from "../ui/Badge";
-import { CodeEditor } from "../ui/CodeEditor";
-import { Select } from "../ui/Input";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { DifficultyBadge, StatusBadge } from "~/components/ui/Badge";
+import { CodeEditor } from "~/components/ui/CodeEditor";
+import { Select } from "~/components/ui/Input";
 import { ArrowLeft, Clock, Database, Send, CheckCircle } from "lucide-react";
-import { mockProblems, type SubmissionStatus } from "../../data/mockData";
+import { mockProblems, type SubmissionStatus } from "~/lib/mock-data";
 
 interface ProblemDetailProps {
     problemId: string;
@@ -195,7 +195,7 @@ export function ProblemDetail({ problemId, onNavigate }: ProblemDetailProps) {
 
             {/* Code Editor */}
             <div className="flex flex-col space-y-4">
-                <Card className="flex-shrink-0">
+                <Card className="shrink-0">
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <Select

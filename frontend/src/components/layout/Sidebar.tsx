@@ -9,7 +9,7 @@ import {
     Settings,
     Award,
 } from "lucide-react";
-import type { UserRole } from "../../data/mockData";
+import type { UserRole } from "~/lib/mock-data";
 
 interface SidebarProps {
     currentPage: string;
@@ -44,14 +44,16 @@ export function Sidebar({ currentPage, onNavigate, userRole }: SidebarProps) {
             : adminMenuItems;
 
     return (
-        <div className="w-72 h-screen bg-white border-r-2 border-gray-200 flex flex-col shadow-sm">
-            <div className="px-8 py-10 border-b-2 border-gray-200 bg-gradient-to-br from-red-50 to-pink-50">
+        <div className="w-72 h-screen bg-white dark:bg-gray-900 border-r-2 border-gray-200 dark:border-gray-700 flex flex-col shadow-sm">
+            <div className="px-4 py-4 border-b-2 border-gray-200 dark:border-gray-700 bg-linear-to-br from-red-50 to-pink-50 dark:from-gray-800 dark:to-gray-800">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <div className="w-12 h-12 bg-linear-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
                         <Code2 className="w-7 h-7 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-gray-900 font-bold text-xl">CodeJudge</h2>
+                        <h2 className="text-gray-900 dark:text-white font-bold text-xl">
+                            CodeJudge
+                        </h2>
                         <p className="text-xs text-gray-500 mt-0.5 font-medium">
                             Online Programming Platform
                         </p>
@@ -59,7 +61,7 @@ export function Sidebar({ currentPage, onNavigate, userRole }: SidebarProps) {
                 </div>
             </div>
 
-            <nav className="flex-1 px-5 py-8 space-y-2">
+            <nav className="flex-1 px-3 py-4 space-y-1">
                 {menuItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = currentPage === item.id;
@@ -68,9 +70,9 @@ export function Sidebar({ currentPage, onNavigate, userRole }: SidebarProps) {
                         <button
                             key={item.id}
                             onClick={() => onNavigate(item.id)}
-                            className={`w-full flex items-center gap-3.5 px-5 py-3.5 rounded-xl transition-all duration-200 group ${
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                                 isActive
-                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-md"
+                                    ? "bg-linear-to-r from-red-500 to-red-600 text-white shadow-md"
                                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                             }`}
                         >
@@ -85,9 +87,9 @@ export function Sidebar({ currentPage, onNavigate, userRole }: SidebarProps) {
                 })}
             </nav>
 
-            <div className="px-8 py-6 border-t border-gray-200 bg-gray-50">
+            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                    <div className="w-11 h-11 rounded-xl bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
                         {userRole === "student" ? "S" : userRole === "instructor" ? "I" : "A"}
                     </div>
                     <div className="flex-1 min-w-0">

@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Input, Select } from "../ui/Input";
-import { Badge } from "../ui/Badge";
-import { Modal } from "../ui/Modal";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { Input, Select } from "~/components/ui/Input";
+import { Badge } from "~/components/ui/Badge";
+import { Modal } from "~/components/ui/Modal";
 import { ArrowLeft, Plus, Search, Edit, Trash2, UserCheck, UserX } from "lucide-react";
-import { mockUsers, type User, type UserRole } from "../../data/mockData";
+import { mockUsers, type User, type UserRole } from "~/lib/mock-data";
 
 interface UserManagementProps {
     onNavigate: (page: string) => void;

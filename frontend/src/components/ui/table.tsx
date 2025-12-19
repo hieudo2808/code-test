@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { cn } from "./utils";
+import { cn } from "~/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
     return (
@@ -47,7 +47,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
         <tr
             data-slot="table-row"
             className={cn(
-                "hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
+                "hover:bg-muted/50 data-state-selected:bg-muted border-b transition-colors",
                 className
             )}
             {...props}

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Input, TextArea, Select } from "../ui/Input";
-import { CodeEditor } from "../ui/CodeEditor";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { Input, TextArea, Select } from "~/components/ui/Input";
+import { CodeEditor } from "~/components/ui/CodeEditor";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check } from "lucide-react";
 
 interface CreateProblemProps {
@@ -253,7 +253,7 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                                             />
                                             {testcase.validationError && (
                                                 <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                                                    <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                                                    <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
                                                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
                                                         {testcase.validationError}
                                                     </p>
@@ -261,7 +261,7 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                                             )}
                                             {testcase.output && (
                                                 <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                                    <Check className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                                                    <Check className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
                                                     <div className="flex-1">
                                                         <p className="text-sm text-green-800 dark:text-green-200 mb-1">
                                                             Output generated successfully

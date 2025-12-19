@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Badge } from "../ui/Badge";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { Badge } from "~/components/ui/Badge";
 import { FileText, Trophy, Users, TrendingUp, Plus, Edit, Trash2 } from "lucide-react";
-import { Modal } from "../ui/Modal";
+import { Modal } from "~/components/ui/Modal";
 
 interface InstructorDashboardProps {
     onNavigate: (page: string) => void;

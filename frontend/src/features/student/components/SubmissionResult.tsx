@@ -1,9 +1,9 @@
 import React from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { StatusBadge } from "../ui/Badge";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { StatusBadge } from "~/components/ui/Badge";
 import { ArrowLeft, CheckCircle, XCircle, Clock, Database } from "lucide-react";
-import type { SubmissionStatus } from "../../data/mockData";
+import type { SubmissionStatus } from "~/lib/mock-data";
 
 interface SubmissionResultProps {
     submissionId: string;

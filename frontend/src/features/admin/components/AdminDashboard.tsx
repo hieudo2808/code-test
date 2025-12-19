@@ -1,7 +1,7 @@
 import React from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Users, FileText, Trophy, TrendingUp, Activity } from "lucide-react";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { Users, FileText, Trophy, TrendingUp } from "lucide-react";
 import {
     BarChart,
     Bar,
@@ -48,40 +48,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         { name: "Runtime Error", value: 89, color: "#8b5cf6" },
     ];
 
-    const recentActivity = [
-        { user: "John Doe", action: "Solved", target: "Two Sum", time: "2 minutes ago" },
-        {
-            user: "Jane Smith",
-            action: "Created Contest",
-            target: "Weekly Challenge #10",
-            time: "15 minutes ago",
-        },
-        {
-            user: "Alice Johnson",
-            action: "Submitted",
-            target: "Binary Search",
-            time: "23 minutes ago",
-        },
-        {
-            user: "Bob Williams",
-            action: "Joined Contest",
-            target: "Educational Round 15",
-            time: "1 hour ago",
-        },
-        {
-            user: "Charlie Brown",
-            action: "Solved",
-            target: "Valid Parentheses",
-            time: "2 hours ago",
-        },
-    ];
-
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-[var(--text-primary)] mb-2">Admin Dashboard</h1>
-                    <p className="text-[var(--text-secondary)]">
+                    <h1 className="text-(--text-primary) mb-2">Admin Dashboard</h1>
+                    <p className="text-(--text-secondary)">
                         Monitor system performance and manage users.
                     </p>
                 </div>
@@ -94,8 +66,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">Total Users</p>
-                                <h2 className="text-[var(--text-primary)] mt-1">1,234</h2>
+                                <p className="text-(--text-tertiary) text-sm">Total Users</p>
+                                <h2 className="text-(--text-primary) mt-1">1,234</h2>
                                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                                     +12% this month
                                 </p>
@@ -111,10 +83,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
+                                <p className="text-(--text-tertiary) text-sm">
                                     Total Problems
                                 </p>
-                                <h2 className="text-[var(--text-primary)] mt-1">456</h2>
+                                <h2 className="text-(--text-primary) mt-1">456</h2>
                                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                                     +8 this week
                                 </p>
@@ -130,10 +102,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
+                                <p className="text-(--text-tertiary) text-sm">
                                     Active Contests
                                 </p>
-                                <h2 className="text-[var(--text-primary)] mt-1">12</h2>
+                                <h2 className="text-(--text-primary) mt-1">12</h2>
                                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                                     3 ongoing
                                 </p>
@@ -149,10 +121,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
+                                <p className="text-(--text-tertiary) text-sm">
                                     Submissions Today
                                 </p>
-                                <h2 className="text-[var(--text-primary)] mt-1">342</h2>
+                                <h2 className="text-(--text-primary) mt-1">342</h2>
                                 <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                                     Peak: 11:00 AM
                                 </p>
@@ -170,7 +142,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 {/* Submissions Chart */}
                 <Card>
                     <CardHeader>
-                        <h3 className="text-[var(--text-primary)]">Submissions This Week</h3>
+                        <h3 className="text-(--text-primary)">Submissions This Week</h3>
                     </CardHeader>
                     <CardBody>
                         <ResponsiveContainer width="100%" height={300}>
@@ -198,7 +170,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 {/* Acceptance Rate Chart */}
                 <Card>
                     <CardHeader>
-                        <h3 className="text-[var(--text-primary)]">Acceptance Rate Trend</h3>
+                        <h3 className="text-(--text-primary)">Acceptance Rate Trend</h3>
                     </CardHeader>
                     <CardBody>
                         <ResponsiveContainer width="100%" height={300}>
@@ -230,7 +202,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 {/* Status Distribution */}
                 <Card>
                     <CardHeader>
-                        <h3 className="text-[var(--text-primary)]">
+                        <h3 className="text-(--text-primary)">
                             Submission Status Distribution
                         </h3>
                     </CardHeader>
@@ -263,42 +235,6 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
-                        </div>
-                    </CardBody>
-                </Card>
-
-                {/* Recent Activity */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-[var(--text-primary)]">Recent Activity</h3>
-                            <Activity className="w-5 h-5 text-[var(--text-tertiary)]" />
-                        </div>
-                    </CardHeader>
-                    <CardBody>
-                        <div className="space-y-4">
-                            {recentActivity.map((activity, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-start gap-3 pb-4 border-b border-[var(--border-color)] last:border-0 last:pb-0"
-                                >
-                                    <div className="w-8 h-8 bg-[var(--primary-100)] dark:bg-[var(--primary-900)] rounded-full flex items-center justify-center flex-shrink-0">
-                                        <span className="text-xs text-[var(--primary-700)] dark:text-[var(--primary-300)]">
-                                            {activity.user.charAt(0)}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-[var(--text-primary)]">
-                                            <span className="font-medium">{activity.user}</span>{" "}
-                                            {activity.action.toLowerCase()}{" "}
-                                            <span className="font-medium">{activity.target}</span>
-                                        </p>
-                                        <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                                            {activity.time}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </CardBody>
                 </Card>

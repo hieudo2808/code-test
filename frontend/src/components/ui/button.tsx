@@ -18,13 +18,13 @@ export function Button({
 
     const variantStyles = {
         primary:
-            "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform hover:scale-105",
+            "bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform hover:scale-105",
         secondary:
             "bg-gray-100 hover:bg-gray-200 text-gray-900 shadow-sm hover:shadow-md hover:scale-105",
         outline:
             "border-2 border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 hover:shadow-md hover:scale-105",
         ghost: "text-gray-600 hover:bg-gray-100 hover:text-gray-900 hover:shadow-sm",
-        danger: "bg-gradient-to-r from-error-500 to-error-600 hover:from-error-600 hover:to-error-600 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform hover:scale-105",
+        danger: "bg-linear-to-r from-error-500 to-error-600 hover:from-error-600 hover:to-error-600 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform hover:scale-105",
     };
 
     const sizeStyles = {

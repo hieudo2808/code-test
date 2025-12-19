@@ -20,19 +20,19 @@ export function Card({ children, className = "", hover = false }: CardProps) {
 
 export function CardHeader({ children, className = "" }: CardProps) {
     return (
-        <div className={`px-8 py-5 border-b-2 border-gray-200 bg-gray-50 ${className}`}>
+        <div className={`px-4 py-3 border-b-2 border-gray-200 bg-gray-50 ${className}`}>
             {children}
         </div>
     );
 }
 
 export function CardBody({ children, className = "" }: CardProps) {
-    return <div className={`px-8 py-6 ${className}`}>{children}</div>;
+    return <div className={`px-4 py-3 ${className}`}>{children}</div>;
 }
 
 export function CardFooter({ children, className = "" }: CardProps) {
     return (
-        <div className={`px-8 py-5 border-t-2 border-gray-200 bg-gray-50 ${className}`}>
+        <div className={`px-4 py-3 border-t-2 border-gray-200 bg-gray-50 ${className}`}>
             {children}
         </div>
     );

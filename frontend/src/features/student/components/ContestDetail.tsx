@@ -1,9 +1,9 @@
 import React from "react";
-import { Card, CardHeader, CardBody } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Badge } from "../ui/Badge";
+import { Card, CardHeader, CardBody } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
+import { Badge } from "~/components/ui/Badge";
 import { Clock, Users, Trophy, Calendar, ArrowLeft } from "lucide-react";
-import { mockContests, mockProblems, type Contest } from "../../data/mockData";
+import { mockContests, mockProblems, type Contest } from "~/lib/mock-data";
 
 interface ContestDetailProps {
     contestId: string;
