@@ -1,4 +1,5 @@
 import React from "react";
+import { NavLink } from "react-router-dom";
 import {
     Code2,
     Home,
@@ -7,33 +8,30 @@ import {
     LayoutDashboard,
     Users,
     Settings,
-    Award,
+    PlusCircle,
 } from "lucide-react";
-import type { UserRole } from "~/lib/mock-data";
+import { useAuth } from "~/contexts/AuthContext";
 
-interface SidebarProps {
-    currentPage: string;
-    onNavigate: (page: string) => void;
-    userRole: UserRole;
-}
+export function Sidebar() {
+    const { user } = useAuth();
+    const userRole = user?.role || "student";
 
-export function Sidebar({ currentPage, onNavigate, userRole }: SidebarProps) {
     const studentMenuItems = [
-        { id: "home", icon: Home, label: "Home" },
-        { id: "contests", icon: Trophy, label: "Contests" },
-        { id: "problems", icon: FileText, label: "Problems" },
+        { path: "/", icon: Home, label: "Trang chủ" },
+        { path: "/contests", icon: Trophy, label: "Cuộc thi" },
+        { path: "/problems", icon: FileText, label: "Bài tập" },
     ];
 
     const instructorMenuItems = [
-        { id: "instructor-dashboard", icon: LayoutDashboard, label: "Dashboard" },
-        { id: "create-problem", icon: FileText, label: "Create Problem" },
-        { id: "create-contest", icon: Trophy, label: "Create Contest" },
+        { path: "/instructor", icon: LayoutDashboard, label: "Dashboard" },
+        { path: "/instructor/problems/new", icon: PlusCircle, label: "Tạo bài tập" },
+        { path: "/instructor/contests/new", icon: Trophy, label: "Tạo cuộc thi" },
     ];
 
     const adminMenuItems = [
-        { id: "admin-dashboard", icon: LayoutDashboard, label: "Dashboard" },
-        { id: "user-management", icon: Users, label: "User Management" },
-        { id: "settings", icon: Settings, label: "Settings" },
+        { path: "/admin", icon: LayoutDashboard, label: "Dashboard" },
+        { path: "/admin/users", icon: Users, label: "Quản lý người dùng" },
+        { path: "/admin/settings", icon: Settings, label: "Cài đặt" },
     ];
 
     const menuItems =
@@ -42,6 +40,19 @@ export function Sidebar({ currentPage, onNavigate, userRole }: SidebarProps) {
             : userRole === "instructor"
             ? instructorMenuItems
             : adminMenuItems;
+
+    const getRoleLabel = () => {
+        switch (userRole) {
+            case "student":
+                return "Sinh viên";
+            case "instructor":
+                return "Giảng viên";
+            case "admin":
+                return "Quản trị viên";
+            default:
+                return "";
+        }
+    };
 
     return (
         <div className="w-72 h-screen bg-white dark:bg-gray-900 border-r-2 border-gray-200 dark:border-gray-700 flex flex-col shadow-sm">
@@ -64,44 +75,51 @@ export function Sidebar({ currentPage, onNavigate, userRole }: SidebarProps) {
             <nav className="flex-1 px-3 py-4 space-y-1">
                 {menuItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = currentPage === item.id;
 
                     return (
-                        <button
-                            key={item.id}
-                            onClick={() => onNavigate(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
-                                isActive
-                                    ? "bg-linear-to-r from-red-500 to-red-600 text-white shadow-md"
-                                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                            }`}
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            end={
+                                item.path === "/" ||
+                                item.path === "/instructor" ||
+                                item.path === "/admin"
+                            }
+                            className={({ isActive }) =>
+                                `w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
+                                    isActive
+                                        ? "bg-linear-to-r from-red-500 to-red-600 text-white shadow-md"
+                                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+                                }`
+                            }
                         >
-                            <Icon
-                                className={`w-5 h-5 transition-transform duration-200 ${
-                                    isActive ? "" : "group-hover:scale-110"
-                                }`}
-                            />
-                            <span className="font-semibold">{item.label}</span>
-                        </button>
+                            {({ isActive }) => (
+                                <>
+                                    <Icon
+                                        className={`w-5 h-5 transition-transform duration-200 ${
+                                            isActive ? "" : "group-hover:scale-110"
+                                        }`}
+                                    />
+                                    <span className="font-semibold">{item.label}</span>
+                                </>
+                            )}
+                        </NavLink>
                     );
                 })}
             </nav>
 
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer">
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
                     <div className="w-11 h-11 rounded-xl bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                        {userRole === "student" ? "S" : userRole === "instructor" ? "I" : "A"}
+                        {user?.name?.charAt(0).toUpperCase() || "U"}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 truncate font-semibold">
-                            {userRole === "student"
-                                ? "Student"
-                                : userRole === "instructor"
-                                ? "Instructor"
-                                : "Admin"}{" "}
-                            User
+                        <p className="text-sm text-gray-900 dark:text-white truncate font-semibold">
+                            {user?.name || "User"}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">{userRole}@example.com</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {getRoleLabel()}
+                        </p>
                     </div>
                 </div>
             </div>
