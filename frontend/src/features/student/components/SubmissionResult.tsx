@@ -47,8 +47,8 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
                     Back to Problems
                 </Button>
 
-                <h1 className="text-[var(--text-primary)] mb-2">Submission Result</h1>
-                <p className="text-[var(--text-secondary)]">{submission.problemTitle}</p>
+                <h1 className="text-(--text-primary) mb-2">Submission Result</h1>
+                <p className="text-(--text-secondary)">{submission.problemTitle}</p>
             </div>
 
             {/* Overall Result */}
@@ -57,24 +57,24 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-6">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm mb-1">Status</p>
+                                <p className="text-(--text-tertiary) text-sm mb-1">Status</p>
                                 <StatusBadge status={submission.status} />
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm mb-1">Language</p>
-                                <p className="text-[var(--text-primary)]">{submission.language}</p>
+                                <p className="text-(--text-tertiary) text-sm mb-1">Language</p>
+                                <p className="text-(--text-primary)">{submission.language}</p>
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm mb-1">Score</p>
-                                <p className="text-[var(--text-primary)]">
+                                <p className="text-(--text-tertiary) text-sm mb-1">Score</p>
+                                <p className="text-(--text-primary)">
                                     {submission.score} / {submission.totalScore}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm mb-1">
+                                <p className="text-(--text-tertiary) text-sm mb-1">
                                     Test Cases
                                 </p>
-                                <p className="text-[var(--text-primary)]">
+                                <p className="text-(--text-primary)">
                                     {passedTests} / {totalTests} passed
                                 </p>
                             </div>
@@ -98,10 +98,10 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
                                 <Clock className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
+                                <p className="text-(--text-tertiary) text-sm">
                                     Execution Time
                                 </p>
-                                <h3 className="text-[var(--text-primary)]">
+                                <h3 className="text-(--text-primary)">
                                     {submission.executionTime}ms
                                 </h3>
                             </div>
@@ -116,8 +116,8 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
                                 <Database className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">Memory Used</p>
-                                <h3 className="text-[var(--text-primary)]">
+                                <p className="text-(--text-tertiary) text-sm">Memory Used</p>
+                                <h3 className="text-(--text-primary)">
                                     {submission.memoryUsed}MB
                                 </h3>
                             </div>
@@ -129,25 +129,25 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
             {/* Test Case Results */}
             <Card>
                 <CardHeader>
-                    <h3 className="text-[var(--text-primary)]">Test Case Results</h3>
+                    <h3 className="text-(--text-primary)">Test Case Results</h3>
                 </CardHeader>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-[var(--border-color)]">
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                            <tr className="border-b border-(--border-color)">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Test Case
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Status
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Time (ms)
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Memory (MB)
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Score
                                 </th>
                             </tr>
@@ -156,7 +156,7 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
                             {submission.testcaseResults.map((result) => (
                                 <tr
                                     key={result.id}
-                                    className="border-b border-[var(--border-color)]"
+                                    className="border-b border-(--border-color)"
                                 >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
@@ -165,7 +165,7 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
                                             ) : (
                                                 <XCircle className="w-4 h-4 text-red-600" />
                                             )}
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 Test Case #{result.id}
                                             </span>
                                         </div>
@@ -174,17 +174,17 @@ export function SubmissionResult({ submissionId, onNavigate }: SubmissionResultP
                                         <StatusBadge status={result.status} />
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-secondary)]">
+                                        <span className="text-(--text-secondary)">
                                             {result.time}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-secondary)]">
+                                        <span className="text-(--text-secondary)">
                                             {result.memory}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-primary)]">
+                                        <span className="text-(--text-primary)">
                                             {result.score}
                                         </span>
                                     </td>

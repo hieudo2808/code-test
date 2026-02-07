@@ -61,10 +61,10 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                 <div className="flex items-start justify-between">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <h1 className="text-[var(--text-primary)]">{contest.name}</h1>
+                            <h1 className="text-(--text-primary)">{contest.name}</h1>
                             {getContestStatusBadge(contest.status)}
                         </div>
-                        <p className="text-[var(--text-secondary)]">{contest.description}</p>
+                        <p className="text-(--text-secondary)">{contest.description}</p>
                     </div>
                     {contest.status === "ongoing" ? (
                         <Button size="lg">
@@ -93,8 +93,8 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                                 <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">Start Time</p>
-                                <p className="text-[var(--text-primary)]">
+                                <p className="text-(--text-tertiary) text-sm">Start Time</p>
+                                <p className="text-(--text-primary)">
                                     {formatDate(contest.startTime)}
                                 </p>
                             </div>
@@ -109,8 +109,8 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                                 <Clock className="w-5 h-5 text-green-600 dark:text-green-400" />
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">Duration</p>
-                                <p className="text-[var(--text-primary)]">{getDuration()}</p>
+                                <p className="text-(--text-tertiary) text-sm">Duration</p>
+                                <p className="text-(--text-primary)">{getDuration()}</p>
                             </div>
                         </div>
                     </CardBody>
@@ -123,8 +123,8 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                                 <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">Participants</p>
-                                <p className="text-[var(--text-primary)]">{contest.participants}</p>
+                                <p className="text-(--text-tertiary) text-sm">Participants</p>
+                                <p className="text-(--text-primary)">{contest.participants}</p>
                             </div>
                         </div>
                     </CardBody>
@@ -137,8 +137,8 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                                 <Trophy className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                             </div>
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">Total Score</p>
-                                <p className="text-[var(--text-primary)]">{totalScore}</p>
+                                <p className="text-(--text-tertiary) text-sm">Total Score</p>
+                                <p className="text-(--text-primary)">{totalScore}</p>
                             </div>
                         </div>
                     </CardBody>
@@ -148,25 +148,25 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
             {/* Problems List */}
             <Card>
                 <CardHeader>
-                    <h3 className="text-[var(--text-primary)]">Contest Problems</h3>
+                    <h3 className="text-(--text-primary)">Contest Problems</h3>
                 </CardHeader>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-[var(--border-color)]">
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                            <tr className="border-b border-(--border-color)">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     #
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Problem
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Score
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Solved
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-right text-xs text-(--text-tertiary) uppercase">
                                     Action
                                 </th>
                             </tr>
@@ -181,31 +181,31 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                                 return (
                                     <tr
                                         key={problem.id}
-                                        className="border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                                        className="border-b border-(--border-color) hover:bg-(--bg-tertiary) transition-colors"
                                     >
                                         <td className="px-6 py-4">
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 {String.fromCharCode(65 + index)}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div>
-                                                <div className="text-[var(--text-primary)]">
+                                                <div className="text-(--text-primary)">
                                                     {problem.title}
                                                 </div>
-                                                <div className="text-sm text-[var(--text-tertiary)] mt-0.5">
+                                                <div className="text-sm text-(--text-tertiary) mt-0.5">
                                                     Time: {problem.timeLimit}ms | Memory:{" "}
                                                     {problem.memoryLimit}MB
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 {contestProblem.score}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-[var(--text-secondary)]">-</span>
+                                            <span className="text-(--text-secondary)">-</span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <Button
@@ -230,7 +230,7 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
-                            <h3 className="text-[var(--text-primary)]">Leaderboard</h3>
+                            <h3 className="text-(--text-primary)">Leaderboard</h3>
                             <Button variant="ghost" size="sm">
                                 View Full Leaderboard
                             </Button>
@@ -239,17 +239,17 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-[var(--border-color)]">
-                                    <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <tr className="border-b border-(--border-color)">
+                                    <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                         Rank
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                    <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                         Participant
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                    <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                         Score
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                    <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                         Time
                                     </th>
                                 </tr>
@@ -262,25 +262,25 @@ export function ContestDetail({ contestId, onNavigate }: ContestDetailProps) {
                                 ].map((entry) => (
                                     <tr
                                         key={entry.rank}
-                                        className="border-b border-[var(--border-color)]"
+                                        className="border-b border-(--border-color)"
                                     >
                                         <td className="px-6 py-4">
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 #{entry.rank}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 {entry.name}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 {entry.score}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-[var(--text-secondary)]">
+                                            <span className="text-(--text-secondary)">
                                                 {entry.time}
                                             </span>
                                         </td>

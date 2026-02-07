@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "~/contexts/AuthContext";
-import type { UserRole } from "~/lib/mock-data";
+import { UserRole } from "~/services/authService";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -36,11 +36,11 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
 function getDefaultPath(role?: UserRole): string {
     switch (role) {
-        case "admin":
+        case UserRole.ADMIN:
             return "/admin";
-        case "instructor":
+        case UserRole.INSTRUCTOR:
             return "/instructor";
-        case "student":
+        case UserRole.STUDENT:
         default:
             return "/";
     }

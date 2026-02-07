@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { Badge } from "~/components/ui/Badge";
+import { useState } from "react";
+import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { Badge } from "~/components/ui/badge";
 import { FileText, Trophy, Users, TrendingUp, Plus, Edit, Trash2 } from "lucide-react";
 import { Modal } from "~/components/ui/Modal";
 
@@ -73,8 +73,8 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-[var(--text-primary)] mb-2">Instructor Dashboard</h1>
-                    <p className="text-[var(--text-secondary)]">
+                    <h1 className="text-(--text-primary) mb-2">Instructor Dashboard</h1>
+                    <p className="text-(--text-secondary)">
                         Manage your problems, contests, and track student performance.
                     </p>
                 </div>
@@ -96,10 +96,8 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
-                                    Total Problems
-                                </p>
-                                <h2 className="text-[var(--text-primary)] mt-1">12</h2>
+                                <p className="text-(--text-tertiary) text-sm">Total Problems</p>
+                                <h2 className="text-(--text-primary) mt-1">12</h2>
                             </div>
                             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
                                 <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -112,10 +110,8 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
-                                    Active Contests
-                                </p>
-                                <h2 className="text-[var(--text-primary)] mt-1">3</h2>
+                                <p className="text-(--text-tertiary) text-sm">Active Contests</p>
+                                <h2 className="text-(--text-primary) mt-1">3</h2>
                             </div>
                             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
                                 <Trophy className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -128,10 +124,8 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
-                                    Total Students
-                                </p>
-                                <h2 className="text-[var(--text-primary)] mt-1">234</h2>
+                                <p className="text-(--text-tertiary) text-sm">Total Students</p>
+                                <h2 className="text-(--text-primary) mt-1">234</h2>
                             </div>
                             <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
                                 <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
@@ -144,10 +138,8 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[var(--text-tertiary)] text-sm">
-                                    Avg Acceptance
-                                </p>
-                                <h2 className="text-[var(--text-primary)] mt-1">45.9%</h2>
+                                <p className="text-(--text-tertiary) text-sm">Avg Acceptance</p>
+                                <h2 className="text-(--text-primary) mt-1">45.9%</h2>
                             </div>
                             <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
                                 <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
@@ -161,7 +153,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <h3 className="text-[var(--text-primary)]">My Problems</h3>
+                        <h3 className="text-(--text-primary)">My Problems</h3>
                         <Button
                             size="sm"
                             variant="ghost"
@@ -175,20 +167,20 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-[var(--border-color)]">
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                            <tr className="border-b border-(--border-color)">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Title
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Difficulty
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Submissions
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Acceptance
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-right text-xs text-(--text-tertiary) uppercase">
                                     Actions
                                 </th>
                             </tr>
@@ -197,10 +189,10 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                             {myProblems.map((problem) => (
                                 <tr
                                     key={problem.id}
-                                    className="border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                                    className="border-b border-(--border-color) hover:bg-(--bg-tertiary) transition-colors"
                                 >
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-primary)]">
+                                        <span className="text-(--text-primary)">
                                             {problem.title}
                                         </span>
                                     </td>
@@ -210,20 +202,20 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                                                 problem.difficulty === "Easy"
                                                     ? "success"
                                                     : problem.difficulty === "Medium"
-                                                    ? "warning"
-                                                    : "error"
+                                                      ? "warning"
+                                                      : "error"
                                             }
                                         >
                                             {problem.difficulty}
                                         </Badge>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-secondary)]">
+                                        <span className="text-(--text-secondary)">
                                             {problem.submissions}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-secondary)]">
+                                        <span className="text-(--text-secondary)">
                                             {problem.acceptanceRate}%
                                         </span>
                                     </td>
@@ -258,7 +250,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <h3 className="text-[var(--text-primary)]">My Contests</h3>
+                        <h3 className="text-(--text-primary)">My Contests</h3>
                         <Button
                             size="sm"
                             variant="ghost"
@@ -272,20 +264,20 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-[var(--border-color)]">
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                            <tr className="border-b border-(--border-color)">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Name
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Status
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Problems
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Participants
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-right text-xs text-(--text-tertiary) uppercase">
                                     Actions
                                 </th>
                             </tr>
@@ -294,10 +286,10 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                             {myContests.map((contest) => (
                                 <tr
                                     key={contest.id}
-                                    className="border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                                    className="border-b border-(--border-color) hover:bg-(--bg-tertiary) transition-colors"
                                 >
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-primary)]">
+                                        <span className="text-(--text-primary)">
                                             {contest.name}
                                         </span>
                                     </td>
@@ -307,20 +299,20 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                                                 contest.status === "ongoing"
                                                     ? "success"
                                                     : contest.status === "upcoming"
-                                                    ? "info"
-                                                    : "default"
+                                                      ? "info"
+                                                      : "default"
                                             }
                                         >
                                             {contest.status.toUpperCase()}
                                         </Badge>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-secondary)]">
+                                        <span className="text-(--text-secondary)">
                                             {contest.problems}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-[var(--text-secondary)]">
+                                        <span className="text-(--text-secondary)">
                                             {contest.participants}
                                         </span>
                                     </td>
@@ -368,7 +360,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                         </>
                     }
                 >
-                    <p className="text-[var(--text-primary)]">
+                    <p className="text-(--text-primary)">
                         Are you sure you want to delete this {deleteModal.type}? This action cannot
                         be undone.
                     </p>

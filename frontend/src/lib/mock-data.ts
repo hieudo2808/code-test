@@ -1,4 +1,4 @@
-export type UserRole = "student" | "instructor" | "admin";
+import { UserRole } from "~/services/authService";
 
 export type ProblemDifficulty = "Easy" | "Medium" | "Hard";
 
@@ -310,7 +310,7 @@ export const mockUsers: User[] = [
         id: "u1",
         name: "John Doe",
         email: "john.doe@example.com",
-        role: "student",
+        role: UserRole.STUDENT,
         enabled: true,
         solvedProblems: 45,
         totalSubmissions: 123,
@@ -319,14 +319,14 @@ export const mockUsers: User[] = [
         id: "u2",
         name: "Jane Smith",
         email: "jane.smith@example.com",
-        role: "instructor",
+        role: UserRole.INSTRUCTOR,
         enabled: true,
     },
     {
         id: "u3",
         name: "Alice Johnson",
         email: "alice.j@example.com",
-        role: "student",
+        role: UserRole.STUDENT,
         enabled: true,
         solvedProblems: 67,
         totalSubmissions: 201,
@@ -335,7 +335,7 @@ export const mockUsers: User[] = [
         id: "u4",
         name: "Bob Williams",
         email: "bob.w@example.com",
-        role: "student",
+        role: UserRole.STUDENT,
         enabled: false,
         solvedProblems: 12,
         totalSubmissions: 34,
@@ -344,7 +344,7 @@ export const mockUsers: User[] = [
         id: "u5",
         name: "Admin User",
         email: "admin@example.com",
-        role: "admin",
+        role: UserRole.ADMIN,
         enabled: true,
     },
 ];

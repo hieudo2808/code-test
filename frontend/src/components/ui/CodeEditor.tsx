@@ -29,7 +29,7 @@ export function CodeEditor({
 
     return (
         <div
-            className={`bg-[var(--code-bg)] rounded-lg overflow-hidden border border-[var(--border-color)] ${className}`}
+            className={`bg-(--code-bg) rounded-lg overflow-hidden border border-(--border-color) ${className}`}
         >
             <div className="px-6 py-3 bg-[#1e1e1e] border-b border-gray-700 flex items-center justify-between">
                 <span className="text-sm text-gray-400">Language: {language}</span>

@@ -1,6 +1,5 @@
-import React from "react";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
+import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
 import { Users, FileText, Trophy, TrendingUp } from "lucide-react";
 import {
     BarChart,
@@ -83,9 +82,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">
-                                    Total Problems
-                                </p>
+                                <p className="text-(--text-tertiary) text-sm">Total Problems</p>
                                 <h2 className="text-(--text-primary) mt-1">456</h2>
                                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                                     +8 this week
@@ -102,9 +99,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">
-                                    Active Contests
-                                </p>
+                                <p className="text-(--text-tertiary) text-sm">Active Contests</p>
                                 <h2 className="text-(--text-primary) mt-1">12</h2>
                                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                                     3 ongoing
@@ -121,9 +116,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">
-                                    Submissions Today
-                                </p>
+                                <p className="text-(--text-tertiary) text-sm">Submissions Today</p>
                                 <h2 className="text-(--text-primary) mt-1">342</h2>
                                 <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                                     Peak: 11:00 AM
@@ -202,9 +195,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 {/* Status Distribution */}
                 <Card>
                     <CardHeader>
-                        <h3 className="text-(--text-primary)">
-                            Submission Status Distribution
-                        </h3>
+                        <h3 className="text-(--text-primary)">Submission Status Distribution</h3>
                     </CardHeader>
                     <CardBody>
                         <div className="flex items-center justify-center">
@@ -216,7 +207,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                                         cy="50%"
                                         labelLine={false}
                                         label={({ name, percent }) =>
-                                            `${name} ${(percent * 100).toFixed(0)}%`
+                                            percent
+                                                ? `${name} ${(percent * 100).toFixed(0)}%`
+                                                : name
                                         }
                                         outerRadius={100}
                                         fill="#8884d8"

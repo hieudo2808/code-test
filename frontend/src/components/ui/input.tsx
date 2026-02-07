@@ -9,15 +9,15 @@ export function Input({ label, error, className = "", ...props }: InputProps) {
     return (
         <div className="w-full">
             {label && (
-                <label className="block text-sm mb-3 text-[var(--text-primary)] font-medium">
+                <label className="block text-sm mb-3 text-(--text-primary) font-medium">
                     {label}
                 </label>
             )}
             <input
-                className={`w-full px-4 py-3 bg-[var(--bg-primary)] border-2 border-[var(--border-color)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent transition-all ${className}`}
+                className={`w-full px-4 py-3 bg-(--bg-primary) border-2 border-(--border-color) rounded-lg text-(--text-primary) placeholder-(--text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--primary-500) focus:border-transparent transition-all ${className}`}
                 {...props}
             />
-            {error && <p className="mt-2 text-sm text-[var(--error-500)]">{error}</p>}
+            {error && <p className="mt-2 text-sm text-(--error-500)">{error}</p>}
         </div>
     );
 }
@@ -31,15 +31,15 @@ export function TextArea({ label, error, className = "", ...props }: TextAreaPro
     return (
         <div className="w-full">
             {label && (
-                <label className="block text-sm mb-3 text-[var(--text-primary)] font-medium">
+                <label className="block text-sm mb-3 text-(--text-primary) font-medium">
                     {label}
                 </label>
             )}
             <textarea
-                className={`w-full px-4 py-3 bg-[var(--bg-primary)] border-2 border-[var(--border-color)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent transition-all ${className}`}
+                className={`w-full px-4 py-3 bg-(--bg-primary) border-2 border-(--border-color) rounded-lg text-(--text-primary) placeholder-(--text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--primary-500) focus:border-transparent transition-all ${className}`}
                 {...props}
             />
-            {error && <p className="mt-2 text-sm text-[var(--error-500)]">{error}</p>}
+            {error && <p className="mt-2 text-sm text-(--error-500)">{error}</p>}
         </div>
     );
 }
@@ -54,12 +54,12 @@ export function Select({ label, error, options, className = "", ...props }: Sele
     return (
         <div className="w-full">
             {label && (
-                <label className="block text-sm mb-3 text-[var(--text-primary)] font-medium">
+                <label className="block text-sm mb-3 text-(--text-primary) font-medium">
                     {label}
                 </label>
             )}
             <select
-                className={`w-full px-4 py-3 bg-[var(--bg-primary)] border-2 border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)] focus:border-transparent transition-all ${className}`}
+                className={`w-full px-4 py-3 bg-(--bg-primary) border-2 border-(--border-color) rounded-lg text-(--text-primary) focus:outline-none focus:ring-2 focus:ring-(--primary-500) focus:border-transparent transition-all ${className}`}
                 {...props}
             >
                 {options.map((option) => (
@@ -68,7 +68,7 @@ export function Select({ label, error, options, className = "", ...props }: Sele
                     </option>
                 ))}
             </select>
-            {error && <p className="mt-2 text-sm text-[var(--error-500)]">{error}</p>}
+            {error && <p className="mt-2 text-sm text-(--error-500)">{error}</p>}
         </div>
     );
 }

@@ -1,11 +1,12 @@
-import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { Input, Select } from "~/components/ui/Input";
-import { Badge } from "~/components/ui/Badge";
+import { useState } from "react";
+import { Card, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { Input, Select } from "~/components/ui/input";
+import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/Modal";
 import { ArrowLeft, Plus, Search, Edit, Trash2, UserCheck, UserX } from "lucide-react";
-import { mockUsers, type User, type UserRole } from "~/lib/mock-data";
+import { mockUsers, type User } from "~/lib/mock-data";
+import { UserRole } from "~/services/authService";
 
 interface UserManagementProps {
     onNavigate: (page: string) => void;
@@ -23,7 +24,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
     const [newUser, setNewUser] = useState({
         name: "",
         email: "",
-        role: "student" as UserRole,
+        role: UserRole.STUDENT,
     });
 
     const filteredUsers = users.filter((user) => {
@@ -44,7 +45,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
         };
         setUsers([...users, user]);
         setCreateUserModal(false);
-        setNewUser({ name: "", email: "", role: "student" });
+        setNewUser({ name: "", email: "", role: UserRole.STUDENT });
     };
 
     const handleUpdateUser = () => {
@@ -65,9 +66,9 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
 
     const getRoleBadgeVariant = (role: UserRole) => {
         switch (role) {
-            case "admin":
+            case UserRole.ADMIN:
                 return "error" as const;
-            case "instructor":
+            case UserRole.INSTRUCTOR:
                 return "warning" as const;
             default:
                 return "info" as const;
@@ -89,8 +90,8 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
 
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-[var(--text-primary)] mb-2">User Management</h1>
-                        <p className="text-[var(--text-secondary)]">
+                        <h1 className="text-(--text-primary) mb-2">User Management</h1>
+                        <p className="text-(--text-secondary)">
                             Create, edit, and manage user accounts and permissions.
                         </p>
                     </div>
@@ -105,30 +106,30 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                     <CardBody>
-                        <p className="text-[var(--text-tertiary)] text-sm">Total Users</p>
-                        <h3 className="text-[var(--text-primary)] mt-1">{users.length}</h3>
+                        <p className="text-(--text-tertiary) text-sm">Total Users</p>
+                        <h3 className="text-(--text-primary) mt-1">{users.length}</h3>
                     </CardBody>
                 </Card>
                 <Card>
                     <CardBody>
-                        <p className="text-[var(--text-tertiary)] text-sm">Students</p>
-                        <h3 className="text-[var(--text-primary)] mt-1">
+                        <p className="text-(--text-tertiary) text-sm">Students</p>
+                        <h3 className="text-(--text-primary) mt-1">
                             {users.filter((u) => u.role === "student").length}
                         </h3>
                     </CardBody>
                 </Card>
                 <Card>
                     <CardBody>
-                        <p className="text-[var(--text-tertiary)] text-sm">Instructors</p>
-                        <h3 className="text-[var(--text-primary)] mt-1">
+                        <p className="text-(--text-tertiary) text-sm">Instructors</p>
+                        <h3 className="text-(--text-primary) mt-1">
                             {users.filter((u) => u.role === "instructor").length}
                         </h3>
                     </CardBody>
                 </Card>
                 <Card>
                     <CardBody>
-                        <p className="text-[var(--text-tertiary)] text-sm">Active</p>
-                        <h3 className="text-[var(--text-primary)] mt-1">
+                        <p className="text-(--text-tertiary) text-sm">Active</p>
+                        <h3 className="text-(--text-primary) mt-1">
                             {users.filter((u) => u.enabled).length}
                         </h3>
                     </CardBody>
@@ -140,20 +141,20 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                 <CardBody>
                     <div className="flex gap-4">
                         <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-tertiary)" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search by name or email..."
-                                className="w-full pl-10 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
+                                className="w-full pl-10 pr-4 py-2 bg-(--bg-primary) border border-(--border-color) rounded-lg text-(--text-primary) focus:outline-none focus:ring-2 focus:ring-(--primary-500)"
                             />
                         </div>
 
                         <select
                             value={roleFilter}
                             onChange={(e) => setRoleFilter(e.target.value)}
-                            className="px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
+                            className="px-4 py-2 bg-(--bg-primary) border border-(--border-color) rounded-lg text-(--text-primary) focus:outline-none focus:ring-2 focus:ring-(--primary-500)"
                         >
                             <option value="all">All Roles</option>
                             <option value="student">Students</option>
@@ -169,20 +170,20 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-[var(--border-color)]">
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                            <tr className="border-b border-(--border-color)">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     User
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Role
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Status
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
                                     Stats
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs text-[var(--text-tertiary)] uppercase">
+                                <th className="px-6 py-3 text-right text-xs text-(--text-tertiary) uppercase">
                                     Actions
                                 </th>
                             </tr>
@@ -191,14 +192,14 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                             {filteredUsers.map((user) => (
                                 <tr
                                     key={user.id}
-                                    className="border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                                    className="border-b border-(--border-color) hover:bg-(--bg-tertiary) transition-colors"
                                 >
                                     <td className="px-6 py-4">
                                         <div>
-                                            <div className="text-[var(--text-primary)]">
+                                            <div className="text-(--text-primary)">
                                                 {user.name}
                                             </div>
-                                            <div className="text-sm text-[var(--text-tertiary)]">
+                                            <div className="text-sm text-(--text-tertiary)">
                                                 {user.email}
                                             </div>
                                         </div>
@@ -217,7 +218,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                                     </td>
                                     <td className="px-6 py-4">
                                         {user.role === "student" && (
-                                            <span className="text-sm text-[var(--text-secondary)]">
+                                            <span className="text-sm text-(--text-secondary)">
                                                 {user.solvedProblems} solved |{" "}
                                                 {user.totalSubmissions} submissions
                                             </span>
@@ -261,7 +262,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                     </table>
 
                     {filteredUsers.length === 0 && (
-                        <div className="text-center py-12 text-[var(--text-tertiary)]">
+                        <div className="text-center py-12 text-(--text-tertiary)">
                             No users found
                         </div>
                     )}
@@ -305,9 +306,9 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                             setNewUser({ ...newUser, role: e.target.value as UserRole })
                         }
                         options={[
-                            { value: "student", label: "Student" },
-                            { value: "instructor", label: "Instructor" },
-                            { value: "admin", label: "Admin" },
+                            { value: UserRole.STUDENT, label: "Student" },
+                            { value: UserRole.INSTRUCTOR, label: "Instructor" },
+                            { value: UserRole.ADMIN, label: "Admin" },
                         ]}
                     />
                 </div>
@@ -380,7 +381,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                         </>
                     }
                 >
-                    <p className="text-[var(--text-primary)]">
+                    <p className="text-(--text-primary)">
                         Are you sure you want to delete <strong>{deleteUserModal.name}</strong>?
                         This action cannot be undone.
                     </p>

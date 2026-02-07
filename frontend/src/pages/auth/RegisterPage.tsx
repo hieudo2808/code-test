@@ -1,22 +1,21 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Code2, Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 import { getDefaultPathForRole } from "~/components/auth/ProtectedRoute";
-import type { UserRole } from "~/lib/mock-data";
+import { UserRole } from "~/services/authService";
 
 export function RegisterPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [role, setRole] = useState<UserRole>("student");
+    const [role, setRole] = useState<UserRole>(UserRole.STUDENT);
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     const { register } = useAuth();
-    const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -37,7 +36,7 @@ export function RegisterPage() {
         try {
             const result = await register({ name, email, password, role });
             if (result.success) {
-                navigate(getDefaultPathForRole(role), { replace: true });
+                <Navigate to={getDefaultPathForRole(role)} replace />;
             } else {
                 setError(result.error || "Đăng ký thất bại");
             }
@@ -153,7 +152,9 @@ export function RegisterPage() {
                                 Vai trò
                             </label>
                             <div className="grid grid-cols-3 gap-3">
-                                {(["student", "instructor", "admin"] as const).map((r) => (
+                                {(
+                                    [UserRole.STUDENT, UserRole.INSTRUCTOR, UserRole.ADMIN] as const
+                                ).map((r) => (
                                     <button
                                         key={r}
                                         type="button"
@@ -164,11 +165,11 @@ export function RegisterPage() {
                                                 : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                                         }`}
                                     >
-                                        {r === "student"
+                                        {r === UserRole.STUDENT
                                             ? "Sinh viên"
-                                            : r === "instructor"
-                                            ? "Giảng viên"
-                                            : "Admin"}
+                                            : r === UserRole.INSTRUCTOR
+                                              ? "Giảng viên"
+                                              : "Admin"}
                                     </button>
                                 ))}
                             </div>

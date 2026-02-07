@@ -1,5 +1,4 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { Moon, Sun, Bell, LogOut, User } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 
@@ -10,11 +9,10 @@ interface HeaderProps {
 
 export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
 
     const handleLogout = () => {
         logout();
-        navigate("/login");
+        <Navigate to="/login" />;
     };
 
     const getRoleLabel = (role?: string) => {

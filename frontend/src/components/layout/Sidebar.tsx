@@ -1,4 +1,3 @@
-import React from "react";
 import { NavLink } from "react-router-dom";
 import {
     Code2,
@@ -11,10 +10,11 @@ import {
     PlusCircle,
 } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
+import { UserRole } from "~/services/authService";
 
 export function Sidebar() {
     const { user } = useAuth();
-    const userRole = user?.role || "student";
+    const userRole = user?.role || UserRole.STUDENT;
 
     const studentMenuItems = [
         { path: "/", icon: Home, label: "Trang chủ" },
@@ -35,19 +35,19 @@ export function Sidebar() {
     ];
 
     const menuItems =
-        userRole === "student"
+        userRole === UserRole.STUDENT
             ? studentMenuItems
-            : userRole === "instructor"
-            ? instructorMenuItems
-            : adminMenuItems;
+            : userRole === UserRole.INSTRUCTOR
+              ? instructorMenuItems
+              : adminMenuItems;
 
     const getRoleLabel = () => {
         switch (userRole) {
-            case "student":
+            case UserRole.STUDENT:
                 return "Sinh viên";
-            case "instructor":
+            case UserRole.INSTRUCTOR:
                 return "Giảng viên";
-            case "admin":
+            case UserRole.ADMIN:
                 return "Quản trị viên";
             default:
                 return "";

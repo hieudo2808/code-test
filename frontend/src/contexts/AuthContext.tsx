@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import type { User, UserRole } from "~/lib/mock-data";
-import { authService, type LoginCredentials, type RegisterData } from "~/services/authService";
+import type { User } from "~/lib/mock-data";
+import {
+    authService,
+    type LoginCredentials,
+    type RegisterData,
+    type UserRole,
+} from "~/services/authService";
 
 interface AuthContextType {
     user: User | null;
@@ -19,7 +24,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Check for existing session on mount
         const currentUser = authService.getCurrentUser();
         setUser(currentUser);
         setIsLoading(false);

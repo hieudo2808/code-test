@@ -1,20 +1,17 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { AdminDashboard as AdminDashboardComponent } from "~/features/admin/components/AdminDashboard";
 
 export function AdminDashboardPage() {
-    const navigate = useNavigate();
-
     const handleNavigate = (page: string) => {
         switch (page) {
             case "user-management":
-                navigate("/admin/users");
+                <Navigate to="/admin/users" />;
                 break;
             case "settings":
-                navigate("/admin/settings");
+                <Navigate to="/admin/settings" />;
                 break;
             default:
-                navigate("/admin");
+                <Navigate to="/admin" />;
         }
     };
 

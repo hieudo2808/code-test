@@ -73,8 +73,8 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                     Back to Dashboard
                 </Button>
 
-                <h1 className="text-[var(--text-primary)] mb-2">Create Contest</h1>
-                <p className="text-[var(--text-secondary)]">
+                <h1 className="text-(--text-primary) mb-2">Create Contest</h1>
+                <p className="text-(--text-secondary)">
                     Set up a new programming contest for your students.
                 </p>
             </div>
@@ -83,7 +83,7 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                 {/* Basic Information */}
                 <Card>
                     <CardHeader>
-                        <h3 className="text-[var(--text-primary)]">Contest Information</h3>
+                        <h3 className="text-(--text-primary)">Contest Information</h3>
                     </CardHeader>
                     <CardBody className="space-y-4">
                         <Input
@@ -128,8 +128,8 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-[var(--text-primary)]">Problems</h3>
-                                <p className="text-sm text-[var(--text-secondary)] mt-1">
+                                <h3 className="text-(--text-primary)">Problems</h3>
+                                <p className="text-sm text-(--text-secondary) mt-1">
                                     {selectedProblems.length} problems selected | Total Score:{" "}
                                     {totalScore} points
                                 </p>
@@ -147,15 +147,15 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                     <CardBody className="space-y-4">
                         {/* Problem Selector */}
                         {showProblemSelector && (
-                            <div className="border border-[var(--border-color)] rounded-lg p-4 space-y-3">
+                            <div className="border border-(--border-color) rounded-lg p-4 space-y-3">
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-tertiary)" />
                                     <input
                                         type="text"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder="Search problems..."
-                                        className="w-full pl-10 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-500)]"
+                                        className="w-full pl-10 pr-4 py-2 bg-(--bg-primary) border border-(--border-color) rounded-lg text-(--text-primary) focus:outline-none focus:ring-2 focus:ring-(--primary-500)"
                                     />
                                 </div>
 
@@ -163,11 +163,11 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                                     {filteredProblems.map((problem) => (
                                         <div
                                             key={problem.id}
-                                            className="flex items-center justify-between p-3 bg-[var(--bg-secondary)] rounded-lg hover:bg-[var(--bg-tertiary)] cursor-pointer transition-colors"
+                                            className="flex items-center justify-between p-3 bg-(--bg-secondary) rounded-lg hover:bg-(--bg-tertiary) cursor-pointer transition-colors"
                                             onClick={() => addProblem(problem.id)}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className="text-[var(--text-primary)]">
+                                                <span className="text-(--text-primary)">
                                                     {problem.title}
                                                 </span>
                                                 <Badge
@@ -182,12 +182,12 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                                                     {problem.difficulty}
                                                 </Badge>
                                             </div>
-                                            <Plus className="w-4 h-4 text-[var(--text-tertiary)]" />
+                                            <Plus className="w-4 h-4 text-(--text-tertiary)" />
                                         </div>
                                     ))}
 
                                     {filteredProblems.length === 0 && (
-                                        <p className="text-center text-[var(--text-tertiary)] py-4">
+                                        <p className="text-center text-(--text-tertiary) py-4">
                                             {searchQuery
                                                 ? "No problems found"
                                                 : "All problems have been added"}
@@ -199,7 +199,7 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
 
                         {/* Selected Problems */}
                         {selectedProblems.length === 0 ? (
-                            <div className="text-center py-8 text-[var(--text-tertiary)]">
+                            <div className="text-center py-8 text-(--text-tertiary)">
                                 <p>No problems selected yet</p>
                                 <p className="text-sm mt-1">
                                     Click "Add Problem" to select problems for this contest
@@ -214,15 +214,15 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                                     return (
                                         <div
                                             key={sp.problemId}
-                                            className="flex items-center gap-4 p-4 border border-[var(--border-color)] rounded-lg"
+                                            className="flex items-center gap-4 p-4 border border-(--border-color) rounded-lg"
                                         >
-                                            <div className="flex items-center justify-center w-8 h-8 bg-[var(--bg-tertiary)] rounded-lg text-[var(--text-primary)]">
+                                            <div className="flex items-center justify-center w-8 h-8 bg-(--bg-tertiary) rounded-lg text-(--text-primary)">
                                                 {String.fromCharCode(65 + index)}
                                             </div>
 
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-[var(--text-primary)]">
+                                                    <span className="text-(--text-primary)">
                                                         {problem.title}
                                                     </span>
                                                     <Badge
@@ -237,7 +237,7 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                                                         {problem.difficulty}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-sm text-[var(--text-tertiary)]">
+                                                <p className="text-sm text-(--text-tertiary)">
                                                     Time: {problem.timeLimit}ms | Memory:{" "}
                                                     {problem.memoryLimit}MB
                                                 </p>

@@ -1,14 +1,13 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { Badge, DifficultyBadge } from "~/components/ui/Badge";
+import { useState } from "react";
+import { Navigate } from "react-router-dom";
+import { Card, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { Badge, DifficultyBadge } from "~/components/ui/badge";
 import { Trophy, Clock, Users, ChevronRight } from "lucide-react";
 import { mockProblems, mockContests, type Contest } from "~/lib/mock-data";
 import { useAuth } from "~/contexts/AuthContext";
 
 export function HomePage() {
-    const navigate = useNavigate();
     const { user } = useAuth();
     const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -136,7 +135,7 @@ export function HomePage() {
                             <CardBody>
                                 <div
                                     className="flex items-start justify-between gap-6 cursor-pointer"
-                                    onClick={() => navigate(`/contests/${contest.id}`)}
+                                    onClick={() => <Navigate to={`/contests/${contest.id}`} />}
                                 >
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-3">
@@ -218,7 +217,7 @@ export function HomePage() {
                                     <tr
                                         key={problem.id}
                                         className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group"
-                                        onClick={() => navigate(`/problems/${problem.id}`)}
+                                        onClick={() => <Navigate to={`/problems/${problem.id}`} />}
                                     >
                                         <td className="px-4 py-3">
                                             <div className="text-gray-900 dark:text-white font-medium group-hover:text-red-600 transition-colors">

@@ -1,14 +1,12 @@
-import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { Badge } from "~/components/ui/Badge";
+import { useParams, Navigate } from "react-router-dom";
+import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { Badge } from "~/components/ui/badge";
 import { Clock, Users, Trophy, Calendar, ArrowLeft } from "lucide-react";
 import { mockContests, mockProblems, type Contest } from "~/lib/mock-data";
 
 export function ContestDetailPage() {
     const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
 
     const contest = mockContests.find((c) => c.id === id);
 
@@ -18,7 +16,7 @@ export function ContestDetailPage() {
                 <h2 className="text-gray-900 dark:text-white text-xl mb-4">
                     Không tìm thấy cuộc thi
                 </h2>
-                <Button onClick={() => navigate("/")}>Về trang chủ</Button>
+                <Button onClick={() => <Navigate to="/" />}>Về trang chủ</Button>
             </div>
         );
     }
@@ -59,7 +57,12 @@ export function ContestDetailPage() {
     return (
         <div className="space-y-6">
             <div>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="mb-4">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => <Navigate to="/" />}
+                    className="mb-4"
+                >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Trở về trang chủ
                 </Button>
@@ -236,7 +239,9 @@ export function ContestDetailPage() {
                                         <td className="px-6 py-4 text-right">
                                             <Button
                                                 size="sm"
-                                                onClick={() => navigate(`/problems/${problem.id}`)}
+                                                onClick={() => (
+                                                    <Navigate to={`/problems/${problem.id}`} />
+                                                )}
                                             >
                                                 Giải
                                             </Button>

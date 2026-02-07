@@ -22,6 +22,7 @@ import { CreateContestPage } from "~/pages/instructor/CreateContestPage";
 // Admin Pages
 import { AdminDashboardPage } from "~/pages/admin/DashboardPage";
 import { UserManagementPage } from "~/pages/admin/UserManagementPage";
+import { UserRole } from "~/services/authService";
 
 export const router = createBrowserRouter([
     // Public routes
@@ -75,7 +76,7 @@ export const router = createBrowserRouter([
     {
         path: "/instructor",
         element: (
-            <ProtectedRoute allowedRoles={["instructor", "admin"]}>
+            <ProtectedRoute allowedRoles={[UserRole.INSTRUCTOR, UserRole.ADMIN]}>
                 <MainLayout />
             </ProtectedRoute>
         ),
@@ -99,7 +100,7 @@ export const router = createBrowserRouter([
     {
         path: "/admin",
         element: (
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
                 <MainLayout />
             </ProtectedRoute>
         ),

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { Input, TextArea, Select } from "~/components/ui/Input";
+import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { Input, TextArea } from "~/components/ui/input";
 import { CodeEditor } from "~/components/ui/CodeEditor";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check } from "lucide-react";
 
@@ -90,8 +90,8 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                     Back to Dashboard
                 </Button>
 
-                <h1 className="text-[var(--text-primary)] mb-2">Create Problem</h1>
-                <p className="text-[var(--text-secondary)]">
+                <h1 className="text-(--text-primary) mb-2">Create Problem</h1>
+                <p className="text-(--text-secondary)">
                     Define your problem and configure test cases.
                 </p>
             </div>
@@ -100,7 +100,7 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                 {/* Basic Information */}
                 <Card>
                     <CardHeader>
-                        <h3 className="text-[var(--text-primary)]">Basic Information</h3>
+                        <h3 className="text-(--text-primary)">Basic Information</h3>
                     </CardHeader>
                     <CardBody className="space-y-4">
                         <Input
@@ -145,8 +145,8 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-[var(--text-primary)]">Test Cases</h3>
-                                <p className="text-sm text-[var(--text-secondary)] mt-1">
+                                <h3 className="text-(--text-primary)">Test Cases</h3>
+                                <p className="text-sm text-(--text-secondary) mt-1">
                                     Total Score: {totalScore} points
                                 </p>
                             </div>
@@ -160,12 +160,10 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                         {testcases.map((testcase, index) => (
                             <div
                                 key={testcase.id}
-                                className="border border-[var(--border-color)] rounded-lg p-4 space-y-4"
+                                className="border border-(--border-color) rounded-lg p-4 space-y-4"
                             >
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-[var(--text-primary)]">
-                                        Test Case {index + 1}
-                                    </h4>
+                                    <h4 className="text-(--text-primary)">Test Case {index + 1}</h4>
                                     {testcases.length > 1 && (
                                         <Button
                                             type="button"
@@ -189,9 +187,9 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                                                 onChange={() =>
                                                     updateTestcase(testcase.id, { mode: "manual" })
                                                 }
-                                                className="w-4 h-4 text-[var(--primary-600)]"
+                                                className="w-4 h-4 text-(--primary-600)"
                                             />
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 Manual Input/Output
                                             </span>
                                         </label>
@@ -204,9 +202,9 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                                                 onChange={() =>
                                                     updateTestcase(testcase.id, { mode: "auto" })
                                                 }
-                                                className="w-4 h-4 text-[var(--primary-600)]"
+                                                className="w-4 h-4 text-(--primary-600)"
                                             />
-                                            <span className="text-[var(--text-primary)]">
+                                            <span className="text-(--text-primary)">
                                                 Auto-generate Output
                                             </span>
                                         </label>
@@ -238,7 +236,7 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                                         />
                                     ) : (
                                         <div>
-                                            <label className="block text-sm mb-2 text-[var(--text-primary)]">
+                                            <label className="block text-sm mb-2 text-(--text-primary)">
                                                 Reference Solution
                                             </label>
                                             <CodeEditor
@@ -320,9 +318,9 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                                                             includeInScoring: e.target.checked,
                                                         })
                                                     }
-                                                    className="w-4 h-4 rounded text-[var(--primary-600)]"
+                                                    className="w-4 h-4 rounded text-(--primary-600)"
                                                 />
-                                                <span className="text-sm text-[var(--text-primary)]">
+                                                <span className="text-sm text-(--text-primary)">
                                                     Include in scoring
                                                 </span>
                                             </label>

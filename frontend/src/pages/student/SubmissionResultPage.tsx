@@ -1,8 +1,7 @@
-import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { StatusBadge } from "~/components/ui/Badge";
+import { useParams, Navigate, useNavigate } from "react-router-dom";
+import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { StatusBadge } from "~/components/ui/badge";
 import { ArrowLeft, CheckCircle, XCircle, Clock, Database, Trophy } from "lucide-react";
 import type { SubmissionStatus } from "~/lib/mock-data";
 
@@ -64,7 +63,12 @@ export function SubmissionResultPage() {
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             <div>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="mb-4">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => <Navigate to="/" />}
+                    className="mb-4"
+                >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Trở về danh sách
                 </Button>
@@ -258,7 +262,7 @@ export function SubmissionResultPage() {
                 <Button variant="outline" className="flex-1" onClick={() => navigate(-1)}>
                     Quay lại bài tập
                 </Button>
-                <Button className="flex-1" onClick={() => navigate("/")}>
+                <Button className="flex-1" onClick={() => <Navigate to="/" />}>
                     Làm bài khác
                 </Button>
             </div>

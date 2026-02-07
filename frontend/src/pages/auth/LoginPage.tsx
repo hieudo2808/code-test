@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { Code2, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 import { getDefaultPathForRole } from "~/components/auth/ProtectedRoute";
@@ -12,7 +12,6 @@ export function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     const { login } = useAuth();
-    const navigate = useNavigate();
     const location = useLocation();
 
     const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
@@ -29,9 +28,9 @@ export function LoginPage() {
                 const storedUser = localStorage.getItem("codejudge_user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);
-                    navigate(getDefaultPathForRole(user.role), { replace: true });
+                    <Navigate to={getDefaultPathForRole(user.role)} replace />;
                 } else {
-                    navigate(from, { replace: true });
+                    <Navigate to={from} replace />;
                 }
             } else {
                 setError(result.error || "Đăng nhập thất bại");

@@ -1,16 +1,15 @@
-import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { DifficultyBadge, StatusBadge } from "~/components/ui/Badge";
+import { useState } from "react";
+import { useParams, Navigate } from "react-router-dom";
+import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { DifficultyBadge, StatusBadge } from "~/components/ui/badge";
 import { CodeEditor } from "~/components/ui/CodeEditor";
-import { Select } from "~/components/ui/Input";
+import { Select } from "~/components/ui/input";
 import { ArrowLeft, Clock, Database, Send, CheckCircle } from "lucide-react";
 import { mockProblems, type SubmissionStatus } from "~/lib/mock-data";
 
 export function ProblemDetailPage() {
     const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
 
     const [code, setCode] = useState("");
     const [language, setLanguage] = useState("python");
@@ -25,7 +24,7 @@ export function ProblemDetailPage() {
                 <h2 className="text-gray-900 dark:text-white text-xl mb-4">
                     Không tìm thấy bài tập
                 </h2>
-                <Button onClick={() => navigate("/")}>Về trang chủ</Button>
+                <Button onClick={() => <Navigate to="/" />}>Về trang chủ</Button>
             </div>
         );
     }
@@ -47,7 +46,7 @@ export function ProblemDetailPage() {
 
             if (randomStatus === "Accepted") {
                 setTimeout(() => {
-                    navigate(`/submissions/sub-${Date.now()}`);
+                    <Navigate to={`/submissions/sub-${Date.now()}`} />;
                 }, 1000);
             }
         }, 2000);
@@ -68,7 +67,7 @@ export function ProblemDetailPage() {
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate("/")}
+                        onClick={() => <Navigate to="/" />}
                         className="mb-6"
                     >
                         <ArrowLeft className="w-4 h-4 mr-2" />
