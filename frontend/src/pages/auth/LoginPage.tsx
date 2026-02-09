@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Code2, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 import { getDefaultPathForRole } from "~/components/auth/ProtectedRoute";
@@ -13,6 +13,7 @@ export function LoginPage() {
 
     const { login } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
@@ -28,9 +29,9 @@ export function LoginPage() {
                 const storedUser = localStorage.getItem("codejudge_user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);
-                    <Navigate to={getDefaultPathForRole(user.role)} replace />;
+                    navigate(getDefaultPathForRole(user.role), { replace: true });
                 } else {
-                    <Navigate to={from} replace />;
+                    navigate(from, { replace: true });
                 }
             } else {
                 setError(result.error || "Đăng nhập thất bại");
@@ -127,33 +128,6 @@ export function LoginPage() {
                                 Đăng ký ngay
                             </Link>
                         </p>
-                    </div>
-                </div>
-
-                {/* Demo Accounts */}
-                <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                        Tài khoản demo:
-                    </p>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                            <span>Student:</span>
-                            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-                                student@example.com / 123456
-                            </code>
-                        </div>
-                        <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                            <span>Instructor:</span>
-                            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-                                instructor@example.com / 123456
-                            </code>
-                        </div>
-                        <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                            <span>Admin:</span>
-                            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-                                admin@example.com / 123456
-                            </code>
-                        </div>
                     </div>
                 </div>
             </div>

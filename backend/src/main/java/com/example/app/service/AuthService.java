@@ -60,7 +60,7 @@ public class AuthService {
         Users user = Users.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
-                .hashPassword(passwordEncoder.encode(request.getHashPassword()))
+                .hashPassword(passwordEncoder.encode(request.getPassword()))
                 .role(role)
                 .isActive(true)
                 .build();
@@ -74,7 +74,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getHashPassword())
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
         } catch (BadCredentialsException e) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);

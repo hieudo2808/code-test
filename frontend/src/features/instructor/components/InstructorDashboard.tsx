@@ -1,12 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
-import { FileText, Trophy, Users, TrendingUp, Plus, Edit, Trash2 } from "lucide-react";
+import { FileText, Trophy, Users, TrendingUp, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { Modal } from "~/components/ui/Modal";
+import { problemService, ProblemListItem } from "~/services/problemService";
+import { contestService, Contest } from "~/services/contestService";
 
 interface InstructorDashboardProps {
     onNavigate: (page: string) => void;
+}
+
+interface MyProblem {
+    id: string;
+    title: string;
+    difficulty: string;
+    submissions: number;
+    acceptanceRate: number;
+}
+
+interface MyContest {
+    id: string;
+    name: string;
+    status: string;
+    participants: number;
+    problems: number;
 }
 
 export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
@@ -16,58 +34,75 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
         id: string;
     } | null>(null);
 
-    const myProblems = [
-        {
-            id: "p1",
-            title: "Array Rotation",
-            difficulty: "Easy",
-            submissions: 145,
-            acceptanceRate: 67.5,
-        },
-        {
-            id: "p2",
-            title: "Graph Traversal",
-            difficulty: "Medium",
-            submissions: 89,
-            acceptanceRate: 42.3,
-        },
-        {
-            id: "p3",
-            title: "Dynamic Programming Challenge",
-            difficulty: "Hard",
-            submissions: 34,
-            acceptanceRate: 28.1,
-        },
-    ];
+    const [myProblems, setMyProblems] = useState<MyProblem[]>([]);
+    const [myContests, setMyContests] = useState<MyContest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const myContests = [
-        {
-            id: "c1",
-            name: "Beginner Practice Round",
-            status: "finished",
-            participants: 234,
-            problems: 4,
-        },
-        {
-            id: "c2",
-            name: "Weekly Challenge #5",
-            status: "ongoing",
-            participants: 156,
-            problems: 3,
-        },
-        {
-            id: "c3",
-            name: "Advanced Algorithms Test",
-            status: "upcoming",
-            participants: 0,
-            problems: 5,
-        },
-    ];
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                setLoading(true);
+                setError(null);
+
+                // Fetch problems
+                const problemsResponse = await problemService.getProblems(0, 10);
+                const problemsData: MyProblem[] = problemsResponse.content.map(
+                    (p: ProblemListItem) => ({
+                        id: p.problemId,
+                        title: p.title,
+                        difficulty: p.difficulty || "MEDIUM",
+                        submissions: 0,
+                        acceptanceRate: p.acceptanceRate || 0,
+                    })
+                );
+                setMyProblems(problemsData);
+
+                // Fetch contests
+                const contestsResponse = await contestService.getContests(0, 10);
+                const contestsData: MyContest[] = contestsResponse.content.map((c: Contest) => ({
+                    id: c.contestId,
+                    name: c.contestName,
+                    status: c.state.toLowerCase(),
+                    participants: c.participantCount,
+                    problems: c.problemCount,
+                }));
+                setMyContests(contestsData);
+            } catch (err) {
+                console.error("Error fetching data:", err);
+                setError("Failed to load data. Please try again.");
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchData();
+    }, []);
 
     const handleDelete = () => {
         // Handle delete logic
         setDeleteModal(null);
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-(--primary-600)" />
+                <span className="ml-2 text-(--text-secondary)">Loading...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="text-center py-8">
+                <p className="text-red-500">{error}</p>
+                <Button onClick={() => window.location.reload()} className="mt-4">
+                    Retry
+                </Button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -97,7 +132,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-(--text-tertiary) text-sm">Total Problems</p>
-                                <h2 className="text-(--text-primary) mt-1">12</h2>
+                                <h2 className="text-(--text-primary) mt-1">{myProblems.length}</h2>
                             </div>
                             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
                                 <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -111,7 +146,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-(--text-tertiary) text-sm">Active Contests</p>
-                                <h2 className="text-(--text-primary) mt-1">3</h2>
+                                <h2 className="text-(--text-primary) mt-1">{myContests.length}</h2>
                             </div>
                             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
                                 <Trophy className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -124,8 +159,10 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">Total Students</p>
-                                <h2 className="text-(--text-primary) mt-1">234</h2>
+                                <p className="text-(--text-tertiary) text-sm">Total Participants</p>
+                                <h2 className="text-(--text-primary) mt-1">
+                                    {myContests.reduce((sum, c) => sum + c.participants, 0)}
+                                </h2>
                             </div>
                             <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
                                 <Users className="w-6 h-6 text-green-600 dark:text-green-400" />

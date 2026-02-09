@@ -1,14 +1,62 @@
-import { useParams, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
-import { Clock, Users, Trophy, Calendar, ArrowLeft } from "lucide-react";
-import { mockContests, mockProblems, type Contest } from "~/lib/mock-data";
+import { Clock, Users, Trophy, Calendar, ArrowLeft, Loader2 } from "lucide-react";
+import { contestService, type Contest, type ContestProblem } from "~/services/contestService";
 
 export function ContestDetailPage() {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
 
-    const contest = mockContests.find((c) => c.id === id);
+    const [contest, setContest] = useState<Contest | null>(null);
+    const [problems, setProblems] = useState<ContestProblem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [joining, setJoining] = useState(false);
+
+    useEffect(() => {
+        async function fetchData() {
+            if (!id) return;
+            try {
+                setLoading(true);
+                const [contestData, problemsData] = await Promise.all([
+                    contestService.getContest(id),
+                    contestService.getContestProblems(id),
+                ]);
+                setContest(contestData);
+                setProblems(problemsData);
+            } catch (error) {
+                console.error("Error fetching contest:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, [id]);
+
+    const handleJoinContest = async () => {
+        if (!id) return;
+        try {
+            setJoining(true);
+            await contestService.joinContest(id);
+            // Refresh contest data
+            const contestData = await contestService.getContest(id);
+            setContest(contestData);
+        } catch (error) {
+            console.error("Error joining contest:", error);
+        } finally {
+            setJoining(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            </div>
+        );
+    }
 
     if (!contest) {
         return (
@@ -16,12 +64,13 @@ export function ContestDetailPage() {
                 <h2 className="text-gray-900 dark:text-white text-xl mb-4">
                     Không tìm thấy cuộc thi
                 </h2>
-                <Button onClick={() => <Navigate to="/" />}>Về trang chủ</Button>
+                <Button onClick={() => navigate("/")}>Về trang chủ</Button>
             </div>
         );
     }
 
-    const formatDate = (date: Date) => {
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
         return date.toLocaleDateString("vi-VN", {
             month: "long",
             day: "numeric",
@@ -32,37 +81,67 @@ export function ContestDetailPage() {
     };
 
     const getDuration = () => {
-        const diff = contest.endTime.getTime() - contest.startTime.getTime();
+        const start = new Date(contest.startTime).getTime();
+        const end = new Date(contest.endTime).getTime();
+        const diff = end - start;
         const hours = Math.floor(diff / (1000 * 60 * 60));
-        return `${hours} giờ`;
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        return minutes > 0 ? `${hours} giờ ${minutes} phút` : `${hours} giờ`;
     };
 
-    const getContestStatusBadge = (status: Contest["status"]) => {
-        const variants = {
-            upcoming: "info" as const,
-            ongoing: "success" as const,
-            finished: "default" as const,
+    const getContestStatusBadge = (state: Contest["state"]) => {
+        const variants: Record<string, "info" | "success" | "default" | "warning"> = {
+            UPCOMING: "info",
+            RUNNING: "success",
+            FROZEN: "warning",
+            FINISHED: "default",
         };
-        const labels = {
-            upcoming: "SẮP DIỄN RA",
-            ongoing: "ĐANG DIỄN RA",
-            finished: "ĐÃ KẾT THÚC",
+        const labels: Record<string, string> = {
+            UPCOMING: "SẮP DIỄN RA",
+            RUNNING: "ĐANG DIỄN RA",
+            FROZEN: "ĐÓNG BĂNG",
+            FINISHED: "ĐÃ KẾT THÚC",
         };
-
-        return <Badge variant={variants[status]}>{labels[status]}</Badge>;
+        return <Badge variant={variants[state] || "default"}>{labels[state] || state}</Badge>;
     };
 
-    const totalScore = contest.problems.reduce((sum, p) => sum + p.score, 0);
+    const renderActionButton = () => {
+        if (contest.isJoined) {
+            if (contest.state === "RUNNING") {
+                return (
+                    <Button size="lg">
+                        <Trophy className="w-4 h-4 mr-2" />
+                        Tiếp tục thi
+                    </Button>
+                );
+            }
+            return (
+                <Button size="lg" variant="secondary">
+                    Xem kết quả
+                </Button>
+            );
+        }
+
+        if (contest.state === "UPCOMING" || contest.state === "RUNNING") {
+            return (
+                <Button size="lg" onClick={handleJoinContest} disabled={joining}>
+                    {joining ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                        <Trophy className="w-4 h-4 mr-2" />
+                    )}
+                    Đăng ký
+                </Button>
+            );
+        }
+
+        return null;
+    };
 
     return (
         <div className="space-y-6">
             <div>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => <Navigate to="/" />}
-                    className="mb-4"
-                >
+                <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="mb-4">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Trở về trang chủ
                 </Button>
@@ -71,27 +150,12 @@ export function ContestDetailPage() {
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <h1 className="text-gray-900 dark:text-white text-2xl font-bold">
-                                {contest.name}
+                                {contest.contestName}
                             </h1>
-                            {getContestStatusBadge(contest.status)}
+                            {getContestStatusBadge(contest.state)}
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400">{contest.description}</p>
                     </div>
-                    {contest.status === "ongoing" ? (
-                        <Button size="lg">
-                            <Trophy className="w-4 h-4 mr-2" />
-                            Tiếp tục thi
-                        </Button>
-                    ) : contest.status === "upcoming" ? (
-                        <Button size="lg">
-                            <Trophy className="w-4 h-4 mr-2" />
-                            Đăng ký
-                        </Button>
-                    ) : (
-                        <Button size="lg" variant="secondary">
-                            Xem kết quả
-                        </Button>
-                    )}
+                    {renderActionButton()}
                 </div>
             </div>
 
@@ -144,7 +208,7 @@ export function ContestDetailPage() {
                                     Số người tham gia
                                 </p>
                                 <p className="text-gray-900 dark:text-white font-medium">
-                                    {contest.participants}
+                                    {contest.participantCount}
                                 </p>
                             </div>
                         </div>
@@ -159,10 +223,10 @@ export function ContestDetailPage() {
                             </div>
                             <div>
                                 <p className="text-gray-500 dark:text-gray-400 text-sm">
-                                    Tổng điểm
+                                    Số bài tập
                                 </p>
                                 <p className="text-gray-900 dark:text-white font-medium">
-                                    {totalScore}
+                                    {contest.problemCount}
                                 </p>
                             </div>
                         </div>
@@ -188,10 +252,7 @@ export function ContestDetailPage() {
                                     Bài tập
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                    Điểm
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                    Đã giải
+                                    Số lần nộp
                                 </th>
                                 <th className="px-6 py-3 text-right text-xs text-gray-500 dark:text-gray-400 uppercase">
                                     Hành động
@@ -199,15 +260,19 @@ export function ContestDetailPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {contest.problems.map((contestProblem, index) => {
-                                const problem = mockProblems.find(
-                                    (p) => p.id === contestProblem.problemId
-                                );
-                                if (!problem) return null;
-
-                                return (
+                            {problems.length === 0 ? (
+                                <tr>
+                                    <td
+                                        colSpan={4}
+                                        className="px-6 py-8 text-center text-gray-500 dark:text-gray-400"
+                                    >
+                                        Chưa có bài tập nào trong cuộc thi này.
+                                    </td>
+                                </tr>
+                            ) : (
+                                problems.map((problem, index) => (
                                     <tr
-                                        key={problem.id}
+                                        key={problem.problemId}
                                         className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                     >
                                         <td className="px-6 py-4">
@@ -216,112 +281,39 @@ export function ContestDetailPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div>
-                                                <div className="text-gray-900 dark:text-white font-medium">
-                                                    {problem.title}
-                                                </div>
-                                                <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                                    Time: {problem.timeLimit}ms | Memory:{" "}
-                                                    {problem.memoryLimit}MB
-                                                </div>
+                                            <div className="text-gray-900 dark:text-white font-medium">
+                                                {problem.title}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-gray-900 dark:text-white">
-                                                {contestProblem.score}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
                                             <span className="text-gray-500 dark:text-gray-400">
-                                                -
+                                                {problem.submissionCount} /{" "}
+                                                {problem.maxSubmissions || "∞"}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <Button
                                                 size="sm"
-                                                onClick={() => (
-                                                    <Navigate to={`/problems/${problem.id}`} />
-                                                )}
+                                                onClick={() =>
+                                                    navigate(`/problems/${problem.problemId}`)
+                                                }
+                                                disabled={
+                                                    !contest.isJoined &&
+                                                    contest.state !== "FINISHED"
+                                                }
                                             >
-                                                Giải
+                                                {contest.isJoined || contest.state === "FINISHED"
+                                                    ? "Giải"
+                                                    : "Đăng ký trước"}
                                             </Button>
                                         </td>
                                     </tr>
-                                );
-                            })}
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
             </Card>
-
-            {/* Leaderboard Preview */}
-            {contest.status !== "upcoming" && (
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-gray-900 dark:text-white font-semibold">
-                                Bảng xếp hạng
-                            </h3>
-                            <Button variant="ghost" size="sm">
-                                Xem đầy đủ
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-gray-200 dark:border-gray-700">
-                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                        Hạng
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                        Thí sinh
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                        Điểm
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                        Thời gian
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {[
-                                    { rank: 1, name: "Alice Johnson", score: 750, time: "1:23:45" },
-                                    { rank: 2, name: "Bob Smith", score: 650, time: "1:45:20" },
-                                    { rank: 3, name: "Charlie Brown", score: 600, time: "1:52:10" },
-                                ].map((entry) => (
-                                    <tr
-                                        key={entry.rank}
-                                        className="border-b border-gray-200 dark:border-gray-700"
-                                    >
-                                        <td className="px-6 py-4">
-                                            <span className="text-gray-900 dark:text-white font-medium">
-                                                #{entry.rank}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-gray-900 dark:text-white">
-                                                {entry.name}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-gray-900 dark:text-white">
-                                                {entry.score}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-gray-500 dark:text-gray-400">
-                                                {entry.time}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
-            )}
         </div>
     );
 }

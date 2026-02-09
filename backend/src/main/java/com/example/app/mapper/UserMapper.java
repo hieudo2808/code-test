@@ -11,6 +11,7 @@ import org.mapstruct.*;
 public interface UserMapper {
     
     @Mapping(source = "role.roleName", target = "roleName")
+    @Mapping(source = "active", target = "active")
     UserResponse toUserResponse(Users user);
 
     @Mapping(source = "roleName", target = "role.roleName")

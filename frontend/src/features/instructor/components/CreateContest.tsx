@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { Card, CardHeader, CardBody } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
-import { Input, TextArea } from "~/components/ui/Input";
-import { Badge } from "~/components/ui/Badge";
-import { ArrowLeft, Plus, Trash2, Search } from "lucide-react";
-import { mockProblems } from "~/lib/mock-data";
+import { useState, useEffect } from "react";
+import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { Input, TextArea } from "~/components/ui/input";
+import { Badge } from "~/components/ui/badge";
+import { ArrowLeft, Plus, Trash2, Search, Loader2 } from "lucide-react";
+import { problemService, type ProblemListItem } from "~/services/problemService";
 
 interface CreateContestProps {
     onNavigate: (page: string) => void;
@@ -24,10 +24,28 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [showProblemSelector, setShowProblemSelector] = useState(false);
 
-    const filteredProblems = mockProblems.filter(
+    const [problems, setProblems] = useState<ProblemListItem[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchProblems() {
+            try {
+                setLoading(true);
+                const data = await problemService.getProblems(0, 100);
+                setProblems(data.content || []);
+            } catch (error) {
+                console.error("Error fetching problems:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchProblems();
+    }, []);
+
+    const filteredProblems = problems.filter(
         (problem) =>
             problem.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-            !selectedProblems.some((sp) => sp.problemId === problem.id)
+            !selectedProblems.some((sp) => sp.problemId === problem.problemId)
     );
 
     const addProblem = (problemId: string) => {
@@ -46,19 +64,44 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
         );
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Contest created:", {
-            contestName,
-            description,
-            startTime,
-            endTime,
-            selectedProblems,
-        });
-        onNavigate("instructor-dashboard");
+        try {
+            const { contestService } = await import("~/services/contestService");
+
+            // Create contest first
+            const contest = await contestService.createContest({
+                contestName,
+                startTime: new Date(startTime).toISOString(),
+                endTime: new Date(endTime).toISOString(),
+                isPublic: true,
+            });
+
+            // Add problems to contest
+            for (const sp of selectedProblems) {
+                await contestService.addProblemToContest(contest.contestId, {
+                    problemId: sp.problemId,
+                    maxScore: sp.score,
+                });
+            }
+
+            alert("Contest created successfully!");
+            onNavigate("instructor-dashboard");
+        } catch (error) {
+            console.error("Error creating contest:", error);
+            alert("Failed to create contest. Please try again.");
+        }
     };
 
     const totalScore = selectedProblems.reduce((sum, sp) => sum + sp.score, 0);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -73,8 +116,8 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                     Back to Dashboard
                 </Button>
 
-                <h1 className="text-(--text-primary) mb-2">Create Contest</h1>
-                <p className="text-(--text-secondary)">
+                <h1 className="text-gray-900 dark:text-white mb-2">Create Contest</h1>
+                <p className="text-gray-600 dark:text-gray-400">
                     Set up a new programming contest for your students.
                 </p>
             </div>
@@ -83,7 +126,9 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                 {/* Basic Information */}
                 <Card>
                     <CardHeader>
-                        <h3 className="text-(--text-primary)">Contest Information</h3>
+                        <h3 className="text-gray-900 dark:text-white font-semibold">
+                            Contest Information
+                        </h3>
                     </CardHeader>
                     <CardBody className="space-y-4">
                         <Input
@@ -128,8 +173,10 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-(--text-primary)">Problems</h3>
-                                <p className="text-sm text-(--text-secondary) mt-1">
+                                <h3 className="text-gray-900 dark:text-white font-semibold">
+                                    Problems
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                                     {selectedProblems.length} problems selected | Total Score:{" "}
                                     {totalScore} points
                                 </p>
@@ -147,47 +194,47 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                     <CardBody className="space-y-4">
                         {/* Problem Selector */}
                         {showProblemSelector && (
-                            <div className="border border-(--border-color) rounded-lg p-4 space-y-3">
+                            <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 space-y-3">
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-tertiary)" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
                                         type="text"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder="Search problems..."
-                                        className="w-full pl-10 pr-4 py-2 bg-(--bg-primary) border border-(--border-color) rounded-lg text-(--text-primary) focus:outline-none focus:ring-2 focus:ring-(--primary-500)"
+                                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                                     />
                                 </div>
 
                                 <div className="max-h-64 overflow-y-auto space-y-2">
                                     {filteredProblems.map((problem) => (
                                         <div
-                                            key={problem.id}
-                                            className="flex items-center justify-between p-3 bg-(--bg-secondary) rounded-lg hover:bg-(--bg-tertiary) cursor-pointer transition-colors"
-                                            onClick={() => addProblem(problem.id)}
+                                            key={problem.problemId}
+                                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                                            onClick={() => addProblem(problem.problemId)}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className="text-(--text-primary)">
+                                                <span className="text-gray-900 dark:text-white">
                                                     {problem.title}
                                                 </span>
                                                 <Badge
                                                     variant={
-                                                        problem.difficulty === "Easy"
+                                                        problem.difficulty === "EASY"
                                                             ? "success"
-                                                            : problem.difficulty === "Medium"
-                                                            ? "warning"
-                                                            : "error"
+                                                            : problem.difficulty === "MEDIUM"
+                                                              ? "warning"
+                                                              : "error"
                                                     }
                                                 >
                                                     {problem.difficulty}
                                                 </Badge>
                                             </div>
-                                            <Plus className="w-4 h-4 text-(--text-tertiary)" />
+                                            <Plus className="w-4 h-4 text-gray-400" />
                                         </div>
                                     ))}
 
                                     {filteredProblems.length === 0 && (
-                                        <p className="text-center text-(--text-tertiary) py-4">
+                                        <p className="text-center text-gray-500 dark:text-gray-400 py-4">
                                             {searchQuery
                                                 ? "No problems found"
                                                 : "All problems have been added"}
@@ -199,7 +246,7 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
 
                         {/* Selected Problems */}
                         {selectedProblems.length === 0 ? (
-                            <div className="text-center py-8 text-(--text-tertiary)">
+                            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                                 <p>No problems selected yet</p>
                                 <p className="text-sm mt-1">
                                     Click "Add Problem" to select problems for this contest
@@ -208,39 +255,37 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                         ) : (
                             <div className="space-y-3">
                                 {selectedProblems.map((sp, index) => {
-                                    const problem = mockProblems.find((p) => p.id === sp.problemId);
+                                    const problem = problems.find(
+                                        (p) => p.problemId === sp.problemId
+                                    );
                                     if (!problem) return null;
 
                                     return (
                                         <div
                                             key={sp.problemId}
-                                            className="flex items-center gap-4 p-4 border border-(--border-color) rounded-lg"
+                                            className="flex items-center gap-4 p-4 border border-gray-300 dark:border-gray-600 rounded-lg"
                                         >
-                                            <div className="flex items-center justify-center w-8 h-8 bg-(--bg-tertiary) rounded-lg text-(--text-primary)">
+                                            <div className="flex items-center justify-center w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white font-medium">
                                                 {String.fromCharCode(65 + index)}
                                             </div>
 
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-(--text-primary)">
+                                                    <span className="text-gray-900 dark:text-white">
                                                         {problem.title}
                                                     </span>
                                                     <Badge
                                                         variant={
-                                                            problem.difficulty === "Easy"
+                                                            problem.difficulty === "EASY"
                                                                 ? "success"
-                                                                : problem.difficulty === "Medium"
-                                                                ? "warning"
-                                                                : "error"
+                                                                : problem.difficulty === "MEDIUM"
+                                                                  ? "warning"
+                                                                  : "error"
                                                         }
                                                     >
                                                         {problem.difficulty}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-sm text-(--text-tertiary)">
-                                                    Time: {problem.timeLimit}ms | Memory:{" "}
-                                                    {problem.memoryLimit}MB
-                                                </p>
                                             </div>
 
                                             <div className="flex items-center gap-3">
@@ -250,7 +295,7 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                                                     onChange={(e) =>
                                                         updateProblemScore(
                                                             sp.problemId,
-                                                            parseInt(e.target.value)
+                                                            parseInt(e.target.value) || 0
                                                         )
                                                     }
                                                     className="w-24"

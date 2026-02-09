@@ -1,74 +1,61 @@
-import { useParams, Navigate, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { StatusBadge } from "~/components/ui/badge";
-import { ArrowLeft, CheckCircle, XCircle, Clock, Database, Trophy } from "lucide-react";
-import type { SubmissionStatus } from "~/lib/mock-data";
+import { ArrowLeft, CheckCircle, XCircle, Clock, Database, Trophy, Loader2 } from "lucide-react";
+import { submissionService, type Submission } from "~/services/submissionService";
 
 export function SubmissionResultPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
-    // Mock submission result
-    const submission = {
-        id: id,
-        problemTitle: "Two Sum",
-        language: "Python 3",
-        status: "Accepted" as SubmissionStatus,
-        score: 100,
-        submittedAt: new Date(),
-        executionTime: 45,
-        memoryUsed: 12.5,
-        testcaseResults: [
-            {
-                testcaseId: 1,
-                status: "Accepted" as SubmissionStatus,
-                executionTime: 10,
-                memoryUsed: 12,
-                score: 20,
-            },
-            {
-                testcaseId: 2,
-                status: "Accepted" as SubmissionStatus,
-                executionTime: 15,
-                memoryUsed: 12.2,
-                score: 20,
-            },
-            {
-                testcaseId: 3,
-                status: "Accepted" as SubmissionStatus,
-                executionTime: 8,
-                memoryUsed: 12.1,
-                score: 20,
-            },
-            {
-                testcaseId: 4,
-                status: "Accepted" as SubmissionStatus,
-                executionTime: 12,
-                memoryUsed: 12.5,
-                score: 20,
-            },
-            {
-                testcaseId: 5,
-                status: "Accepted" as SubmissionStatus,
-                executionTime: 45,
-                memoryUsed: 12.3,
-                score: 20,
-            },
-        ],
-    };
+    const [submission, setSubmission] = useState<Submission | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const isAccepted = submission.status === "Accepted";
+    useEffect(() => {
+        async function fetchData() {
+            if (!id) return;
+            try {
+                setLoading(true);
+                const data = await submissionService.getSubmission(id);
+                setSubmission(data);
+            } catch (error) {
+                console.error("Error fetching submission:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            </div>
+        );
+    }
+
+    if (!submission) {
+        return (
+            <div className="text-center py-12">
+                <h2 className="text-gray-900 dark:text-white text-xl mb-4">
+                    Không tìm thấy bài nộp
+                </h2>
+                <Button onClick={() => navigate("/")}>Về trang chủ</Button>
+            </div>
+        );
+    }
+
+    const isAccepted = submission.verdict === "ACCEPTED";
+    const passedTests = submission.results?.filter((t) => t.verdict === "ACCEPTED").length || 0;
+    const totalTests = submission.results?.length || 0;
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             <div>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => <Navigate to="/" />}
-                    className="mb-4"
-                >
+                <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="mb-4">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Trở về danh sách
                 </Button>
@@ -79,10 +66,10 @@ export function SubmissionResultPage() {
                             Kết quả bài nộp
                         </h1>
                         <p className="text-gray-500 dark:text-gray-400">
-                            Bài tập: {submission.problemTitle} • {submission.language}
+                            Bài tập: {submission.problemTitle}
                         </p>
                     </div>
-                    <StatusBadge status={submission.status} />
+                    <StatusBadge status={submission.verdict || submission.status} />
                 </div>
             </div>
 
@@ -109,7 +96,7 @@ export function SubmissionResultPage() {
                                     isAccepted ? "text-green-600" : "text-red-600"
                                 }`}
                             >
-                                {isAccepted ? "Chính xác!" : "Sai kết quả"}
+                                {isAccepted ? "Chính xác!" : submission.verdict || "Đang chấm..."}
                             </h2>
                             <p className="text-gray-500 dark:text-gray-400 mt-1">
                                 {isAccepted
@@ -119,9 +106,11 @@ export function SubmissionResultPage() {
                         </div>
                         <div className="text-right">
                             <div className="text-3xl font-bold text-gray-900 dark:text-white">
-                                {submission.score}
+                                {submission.score || 0}
                             </div>
-                            <div className="text-gray-500 dark:text-gray-400 text-sm">điểm</div>
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">
+                                / {submission.maxScore || 100} điểm
+                            </div>
                         </div>
                     </div>
                 </CardBody>
@@ -140,7 +129,7 @@ export function SubmissionResultPage() {
                                     Thời gian chạy
                                 </p>
                                 <p className="text-gray-900 dark:text-white text-xl font-bold">
-                                    {submission.executionTime} ms
+                                    {submission.timeMs || 0} ms
                                 </p>
                             </div>
                         </div>
@@ -156,7 +145,7 @@ export function SubmissionResultPage() {
                             <div>
                                 <p className="text-gray-500 dark:text-gray-400 text-sm">Bộ nhớ</p>
                                 <p className="text-gray-900 dark:text-white text-xl font-bold">
-                                    {submission.memoryUsed} MB
+                                    {((submission.memoryKb || 0) / 1024).toFixed(2)} MB
                                 </p>
                             </div>
                         </div>
@@ -174,12 +163,7 @@ export function SubmissionResultPage() {
                                     Test cases đúng
                                 </p>
                                 <p className="text-gray-900 dark:text-white text-xl font-bold">
-                                    {
-                                        submission.testcaseResults.filter(
-                                            (t) => t.status === "Accepted"
-                                        ).length
-                                    }
-                                    /{submission.testcaseResults.length}
+                                    {passedTests}/{totalTests}
                                 </p>
                             </div>
                         </div>
@@ -188,81 +172,88 @@ export function SubmissionResultPage() {
             </div>
 
             {/* Test Case Results */}
-            <Card>
-                <CardHeader>
-                    <h3 className="text-gray-900 dark:text-white font-semibold">
-                        Chi tiết từng test case
-                    </h3>
-                </CardHeader>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-gray-200 dark:border-gray-700">
-                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                    Test
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                    Kết quả
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                    Thời gian
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                    Bộ nhớ
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                    Điểm
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {submission.testcaseResults.map((tc) => (
-                                <tr
-                                    key={tc.testcaseId}
-                                    className="border-b border-gray-200 dark:border-gray-700"
-                                >
-                                    <td className="px-6 py-4">
-                                        <span className="text-gray-900 dark:text-white font-medium">
-                                            Test #{tc.testcaseId}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <StatusBadge status={tc.status} />
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-gray-600 dark:text-gray-400">
-                                            {tc.executionTime} ms
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-gray-600 dark:text-gray-400">
-                                            {tc.memoryUsed} MB
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span
-                                            className={`font-medium ${
-                                                tc.status === "Accepted"
-                                                    ? "text-green-600"
-                                                    : "text-red-600"
-                                            }`}
-                                        >
-                                            {tc.score}
-                                        </span>
-                                    </td>
+            {submission.results && submission.results.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <h3 className="text-gray-900 dark:text-white font-semibold">
+                            Chi tiết từng test case
+                        </h3>
+                    </CardHeader>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-gray-200 dark:border-gray-700">
+                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
+                                        Test
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
+                                        Kết quả
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
+                                        Thời gian
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
+                                        Bộ nhớ
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
+                                        Điểm
+                                    </th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+                            </thead>
+                            <tbody>
+                                {submission.results.map((tc, index) => (
+                                    <tr
+                                        key={tc.testcaseId}
+                                        className="border-b border-gray-200 dark:border-gray-700"
+                                    >
+                                        <td className="px-6 py-4">
+                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                {tc.isHidden
+                                                    ? `Test #${index + 1} (ẩn)`
+                                                    : `Test #${index + 1}`}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <StatusBadge status={tc.verdict || "PENDING"} />
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-gray-600 dark:text-gray-400">
+                                                {tc.timeMs || "-"} ms
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-gray-600 dark:text-gray-400">
+                                                {tc.memoryKb
+                                                    ? (tc.memoryKb / 1024).toFixed(2)
+                                                    : "-"}{" "}
+                                                MB
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span
+                                                className={`font-medium ${
+                                                    tc.verdict === "ACCEPTED"
+                                                        ? "text-green-600"
+                                                        : "text-red-600"
+                                                }`}
+                                            >
+                                                {tc.score}/{tc.maxScore}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            )}
 
             {/* Actions */}
             <div className="flex gap-4">
                 <Button variant="outline" className="flex-1" onClick={() => navigate(-1)}>
                     Quay lại bài tập
                 </Button>
-                <Button className="flex-1" onClick={() => <Navigate to="/" />}>
+                <Button className="flex-1" onClick={() => navigate("/")}>
                     Làm bài khác
                 </Button>
             </div>

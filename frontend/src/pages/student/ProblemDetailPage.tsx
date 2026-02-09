@@ -1,22 +1,92 @@
-import { useState } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { DifficultyBadge, StatusBadge } from "~/components/ui/badge";
 import { CodeEditor } from "~/components/ui/CodeEditor";
 import { Select } from "~/components/ui/input";
-import { ArrowLeft, Clock, Database, Send, CheckCircle } from "lucide-react";
-import { mockProblems, type SubmissionStatus } from "~/lib/mock-data";
+import { ArrowLeft, Clock, Database, Send, Loader2 } from "lucide-react";
+import { problemService, type Problem } from "~/services/problemService";
+import { languageService, type Language } from "~/services/languageService";
+import { submissionService } from "~/services/submissionService";
+
+type SubmissionStatus = "PENDING" | "JUDGING" | "DONE" | "ERROR";
 
 export function ProblemDetailPage() {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+
+    const [problem, setProblem] = useState<Problem | null>(null);
+    const [languages, setLanguages] = useState<Language[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const [code, setCode] = useState("");
-    const [language, setLanguage] = useState("python");
+    const [languageId, setLanguageId] = useState<number>(0);
     const [submissionStatus, setSubmissionStatus] = useState<SubmissionStatus | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const problem = mockProblems.find((p) => p.id === id);
+    useEffect(() => {
+        async function fetchData() {
+            if (!id) return;
+            try {
+                setLoading(true);
+                const [problemData, languagesData] = await Promise.all([
+                    problemService.getProblem(id),
+                    languageService.getLanguages(),
+                ]);
+                setProblem(problemData);
+                setLanguages(languagesData);
+                if (languagesData.length > 0) {
+                    setLanguageId(languagesData[0].id);
+                }
+            } catch (error) {
+                console.error("Error fetching problem:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, [id]);
+
+    const handleSubmit = async () => {
+        if (!problem || !code.trim()) return;
+
+        try {
+            setIsSubmitting(true);
+            setSubmissionStatus("PENDING");
+
+            const submission = await submissionService.submit({
+                problemId: problem.problemId,
+                languageId,
+                sourceCode: code,
+            });
+
+            // Poll for result
+            const result = await submissionService.pollSubmission(submission.submissionId);
+            setSubmissionStatus(result.status);
+
+            if (result.status === "DONE") {
+                setTimeout(() => {
+                    navigate(`/submissions/${submission.submissionId}`);
+                }, 500);
+            }
+        } catch (error) {
+            console.error("Error submitting:", error);
+            setSubmissionStatus("ERROR");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const selectedLanguage = languages.find((l) => l.id === languageId);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            </div>
+        );
+    }
 
     if (!problem) {
         return (
@@ -24,40 +94,10 @@ export function ProblemDetailPage() {
                 <h2 className="text-gray-900 dark:text-white text-xl mb-4">
                     Không tìm thấy bài tập
                 </h2>
-                <Button onClick={() => <Navigate to="/" />}>Về trang chủ</Button>
+                <Button onClick={() => navigate("/")}>Về trang chủ</Button>
             </div>
         );
     }
-
-    const handleSubmit = () => {
-        setIsSubmitting(true);
-        setSubmissionStatus("Pending");
-
-        // Simulate submission
-        setTimeout(() => {
-            const statuses: SubmissionStatus[] = [
-                "Accepted",
-                "Wrong Answer",
-                "Time Limit Exceeded",
-            ];
-            const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-            setSubmissionStatus(randomStatus);
-            setIsSubmitting(false);
-
-            if (randomStatus === "Accepted") {
-                setTimeout(() => {
-                    <Navigate to={`/submissions/sub-${Date.now()}`} />;
-                }, 1000);
-            }
-        }, 2000);
-    };
-
-    const languages = [
-        { value: "python", label: "Python 3" },
-        { value: "cpp", label: "C++17" },
-        { value: "java", label: "Java 11" },
-        { value: "javascript", label: "JavaScript" },
-    ];
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-8rem)]">
@@ -67,7 +107,7 @@ export function ProblemDetailPage() {
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => <Navigate to="/" />}
+                        onClick={() => navigate("/")}
                         className="mb-6"
                     >
                         <ArrowLeft className="w-4 h-4 mr-2" />
@@ -78,21 +118,19 @@ export function ProblemDetailPage() {
                         <h2 className="text-gray-900 dark:text-white text-xl font-bold">
                             {problem.title}
                         </h2>
-                        <DifficultyBadge difficulty={problem.difficulty} />
+                        <DifficultyBadge
+                            difficulty={problem.difficulty as "EASY" | "MEDIUM" | "HARD"}
+                        />
                     </div>
 
                     <div className="flex items-center gap-8 text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4" />
-                            <span>Time: {problem.timeLimit}ms</span>
+                            <span>Time: {problem.timeLimit}s</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Database className="w-4 h-4" />
                             <span>Memory: {problem.memoryLimit}MB</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>Acceptance: {problem.acceptanceRate}%</span>
                         </div>
                     </div>
                 </div>
@@ -105,7 +143,7 @@ export function ProblemDetailPage() {
                     </CardHeader>
                     <CardBody>
                         <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-                            {problem.description.split("\n").map((para, i) => (
+                            {problem.description?.split("\n").map((para, i) => (
                                 <p key={i} className="mb-3 leading-relaxed">
                                     {para}
                                 </p>
@@ -114,97 +152,33 @@ export function ProblemDetailPage() {
                     </CardBody>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <h3 className="text-gray-900 dark:text-white font-semibold">Input</h3>
-                    </CardHeader>
-                    <CardBody>
-                        <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-                            {problem.inputDescription.split("\n").map((para, i) => (
-                                <p key={i} className="mb-2">
-                                    {para}
+                {problem.sampleInput && (
+                    <Card>
+                        <CardHeader>
+                            <h3 className="text-gray-900 dark:text-white font-semibold">
+                                Ví dụ mẫu
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="space-y-4">
+                            <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                    Input:
                                 </p>
-                            ))}
-                        </div>
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <h3 className="text-gray-900 dark:text-white font-semibold">Output</h3>
-                    </CardHeader>
-                    <CardBody>
-                        <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-                            {problem.outputDescription.split("\n").map((para, i) => (
-                                <p key={i} className="mb-2">
-                                    {para}
-                                </p>
-                            ))}
-                        </div>
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <h3 className="text-gray-900 dark:text-white font-semibold">Ràng buộc</h3>
-                    </CardHeader>
-                    <CardBody>
-                        <ul className="space-y-2">
-                            {problem.constraints.map((constraint, i) => (
-                                <li
-                                    key={i}
-                                    className="text-gray-700 dark:text-gray-300 flex items-start gap-2"
-                                >
-                                    <span className="text-red-500 mt-1">•</span>
-                                    <code className="flex-1">{constraint}</code>
-                                </li>
-                            ))}
-                        </ul>
-                    </CardBody>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <h3 className="text-gray-900 dark:text-white font-semibold">Ví dụ mẫu</h3>
-                    </CardHeader>
-                    <CardBody className="space-y-4">
-                        {problem.sampleTestcases.map((testcase, i) => (
-                            <div key={i}>
-                                <h4 className="text-gray-900 dark:text-white font-medium mb-3">
-                                    Ví dụ {i + 1}
-                                </h4>
-                                <div className="space-y-3">
-                                    <div>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                                            Input:
-                                        </p>
-                                        <pre className="text-sm bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                                            {testcase.input}
-                                        </pre>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                                            Output:
-                                        </p>
-                                        <pre className="text-sm bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                                            {testcase.output}
-                                        </pre>
-                                    </div>
-                                    {testcase.explanation && (
-                                        <div>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                                                Giải thích:
-                                            </p>
-                                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                                                {testcase.explanation}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
+                                <pre className="text-sm bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                                    {problem.sampleInput}
+                                </pre>
                             </div>
-                        ))}
-                    </CardBody>
-                </Card>
+                            <div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                    Output:
+                                </p>
+                                <pre className="text-sm bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                                    {problem.sampleOutput}
+                                </pre>
+                            </div>
+                        </CardBody>
+                    </Card>
+                )}
             </div>
 
             {/* Code Editor */}
@@ -213,9 +187,12 @@ export function ProblemDetailPage() {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <Select
-                                options={languages}
-                                value={language}
-                                onChange={(e) => setLanguage(e.target.value)}
+                                options={languages.map((l) => ({
+                                    value: String(l.id),
+                                    label: l.name,
+                                }))}
+                                value={String(languageId)}
+                                onChange={(e) => setLanguageId(Number(e.target.value))}
                                 className="w-48"
                             />
                             {submissionStatus && <StatusBadge status={submissionStatus} />}
@@ -224,7 +201,11 @@ export function ProblemDetailPage() {
                 </Card>
 
                 <div className="flex-1 min-h-0">
-                    <CodeEditor value={code} onChange={setCode} language={language} />
+                    <CodeEditor
+                        value={code}
+                        onChange={setCode}
+                        language={selectedLanguage?.monacoLanguage || "python"}
+                    />
                 </div>
 
                 <div className="flex gap-3">
@@ -238,7 +219,7 @@ export function ProblemDetailPage() {
                     >
                         {isSubmitting ? (
                             <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                 Đang nộp...
                             </>
                         ) : (

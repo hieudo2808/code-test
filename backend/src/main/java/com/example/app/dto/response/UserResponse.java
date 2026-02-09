@@ -1,11 +1,11 @@
 package com.example.app.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -21,5 +21,7 @@ public class UserResponse {
     private String bio;
     private String roleName;
     private OffsetDateTime createdAt;
-    private boolean isActive;
+    
+    @JsonProperty("isActive")
+    private boolean active;
 }

@@ -1,6 +1,4 @@
-import { User } from "~/lib/mock-data";
 import api from "./api";
-import { useNavigate } from "react-router-dom";
 
 const STORAGE_KEY = "codejudge_user";
 
@@ -8,6 +6,50 @@ export enum UserRole {
     STUDENT = "student",
     INSTRUCTOR = "instructor",
     ADMIN = "admin",
+}
+
+// User interface matching frontend expectations
+export interface User {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    avatarUrl?: string;
+    bio?: string;
+    isActive: boolean;
+    createdAt?: string;
+}
+
+// API response from backend
+interface ApiUserResponse {
+    userId: string;
+    fullName: string;
+    email: string;
+    roleName: string;
+    avatarUrl?: string;
+    bio?: string;
+    isActive: boolean;
+    createdAt?: string;
+}
+
+// Normalize backend response to frontend User format
+function normalizeUser(apiUser: ApiUserResponse): User {
+    const roleMap: Record<string, UserRole> = {
+        STUDENT: UserRole.STUDENT,
+        INSTRUCTOR: UserRole.INSTRUCTOR,
+        ADMIN: UserRole.ADMIN,
+    };
+
+    return {
+        id: apiUser.userId,
+        name: apiUser.fullName,
+        email: apiUser.email,
+        role: roleMap[apiUser.roleName?.toUpperCase()] || UserRole.STUDENT,
+        avatarUrl: apiUser.avatarUrl,
+        bio: apiUser.bio,
+        isActive: apiUser.isActive,
+        createdAt: apiUser.createdAt,
+    };
 }
 
 export interface LoginCredentials {
@@ -30,34 +72,56 @@ export interface AuthResponse {
 
 export const authService = {
     async login(credentials: LoginCredentials): Promise<AuthResponse> {
-        const response = await api.post("/auth/login", credentials);
-        if (!response.data.user.enabled) {
-            return { success: false, error: "Tài khoản đã bị vô hiệu hóa" };
+        try {
+            const response = await api.post("/auth/login", credentials);
+            const result = response.data.result;
+            const apiUser = result?.user;
+            if (!apiUser) {
+                return { success: false, error: "Login failed" };
+            }
+            if (apiUser.isActive === false) {
+                return { success: false, error: "Tài khoản đã bị vô hiệu hóa" };
+            }
+            const user = normalizeUser(apiUser);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+            localStorage.setItem("token", result.token);
+            return { success: true, user };
+        } catch (error: any) {
+            const message = error.response?.data?.message || error.message || "Đăng nhập thất bại";
+            return { success: false, error: message };
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(response.data.user));
-        return { success: true, user: response.data.user };
     },
 
     async register(data: RegisterData): Promise<AuthResponse> {
-        // Check if email already exists
-        const exists = await api.get("/users/", { params: { email: data.email } });
-        if (exists.data.length > 0) {
-            return { success: false, error: "Email đã được sử dụng" };
+        try {
+            const response = await api.post("/auth/register", {
+                fullName: data.name,
+                email: data.email,
+                password: data.password,
+            });
+            const result = response.data.result;
+            const apiUser = result?.user;
+            if (!apiUser) {
+                return { success: false, error: "Registration failed" };
+            }
+            if (apiUser.isActive === false) {
+                return { success: false, error: "Tài khoản đã bị vô hiệu hóa" };
+            }
+            const user = normalizeUser(apiUser);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+            localStorage.setItem("token", result.token);
+            return { success: true, user };
+        } catch (error: any) {
+            const message = error.response?.data?.message || error.message || "Đăng ký thất bại";
+            return { success: false, error: message };
         }
-
-        const response = await api.post("/auth/register", data);
-        if (!response.data.user.enabled) {
-            return { success: false, error: "Tài khoản đã bị vô hiệu hóa" };
-        }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(response.data.user));
-        return { success: true, user: response.data.user };
     },
 
     logout(): void {
         localStorage.removeItem(STORAGE_KEY);
-        api.post("/auth/logout");
-        const navigate = useNavigate();
-        navigate("/login");
+        localStorage.removeItem("token");
+        api.post("/auth/logout").catch(() => {});
+        // Navigation should be handled by the component calling logout
     },
 
     getCurrentUser(): User | null {

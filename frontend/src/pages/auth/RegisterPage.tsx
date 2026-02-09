@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Code2, Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 import { getDefaultPathForRole } from "~/components/auth/ProtectedRoute";
@@ -16,6 +16,7 @@ export function RegisterPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     const { register } = useAuth();
+    const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,7 +37,7 @@ export function RegisterPage() {
         try {
             const result = await register({ name, email, password, role });
             if (result.success) {
-                <Navigate to={getDefaultPathForRole(role)} replace />;
+                navigate(getDefaultPathForRole(role), { replace: true });
             } else {
                 setError(result.error || "Đăng ký thất bại");
             }

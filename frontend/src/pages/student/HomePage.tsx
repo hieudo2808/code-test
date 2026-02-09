@@ -1,29 +1,60 @@
-import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge, DifficultyBadge } from "~/components/ui/badge";
-import { Trophy, Clock, Users, ChevronRight } from "lucide-react";
-import { mockProblems, mockContests, type Contest } from "~/lib/mock-data";
+import { Trophy, Clock, Users, ChevronRight, Loader2 } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
+import { contestService, type Contest } from "~/services/contestService";
+import { problemService, type ProblemListItem } from "~/services/problemService";
+import { statsService, type UserStats } from "~/services/statsService";
 
 export function HomePage() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
 
-    const filteredContests = mockContests.filter((contest) => {
+    // Data states
+    const [contests, setContests] = useState<Contest[]>([]);
+    const [problems, setProblems] = useState<ProblemListItem[]>([]);
+    const [stats, setStats] = useState<UserStats | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                setLoading(true);
+                const [contestsRes, problemsRes, statsRes] = await Promise.all([
+                    contestService.getContests(),
+                    problemService.getProblems(),
+                    statsService.getMyStats(),
+                ]);
+                setContests(contestsRes.content || []);
+                setProblems(problemsRes.content || []);
+                setStats(statsRes);
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, []);
+
+    const filteredContests = contests.filter((contest) => {
         if (statusFilter === "all") return true;
-        return contest.status === statusFilter;
+        return contest.state === statusFilter.toUpperCase();
     });
 
-    const filteredProblems = mockProblems.filter((problem) => {
+    const filteredProblems = problems.filter((problem) => {
         if (difficultyFilter === "all") return true;
-        return problem.difficulty === difficultyFilter;
+        return problem.difficulty === difficultyFilter.toUpperCase();
     });
 
-    const formatDate = (date: Date) => {
-        return date.toLocaleDateString("en-US", {
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString("vi-VN", {
             month: "short",
             day: "numeric",
             hour: "2-digit",
@@ -31,15 +62,23 @@ export function HomePage() {
         });
     };
 
-    const getContestStatusBadge = (status: Contest["status"]) => {
-        const variants = {
-            upcoming: "info" as const,
-            ongoing: "success" as const,
-            finished: "default" as const,
+    const getContestStatusBadge = (state: Contest["state"]) => {
+        const variants: Record<string, "info" | "success" | "default" | "warning"> = {
+            UPCOMING: "info",
+            RUNNING: "success",
+            FROZEN: "warning",
+            FINISHED: "default",
         };
-
-        return <Badge variant={variants[status]}>{status.toUpperCase()}</Badge>;
+        return <Badge variant={variants[state] || "default"}>{state}</Badge>;
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -62,7 +101,7 @@ export function HomePage() {
                                     Bài đã giải
                                 </p>
                                 <h2 className="text-gray-900 dark:text-white mt-2 text-3xl font-bold">
-                                    {user?.solvedProblems || 0}
+                                    {stats?.solvedProblems || 0}
                                 </h2>
                             </div>
                             <div className="w-14 h-14 bg-linear-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -80,7 +119,7 @@ export function HomePage() {
                                     Tổng bài nộp
                                 </p>
                                 <h2 className="text-gray-900 dark:text-white mt-2 text-3xl font-bold">
-                                    {user?.totalSubmissions || 0}
+                                    {stats?.totalSubmissions || 0}
                                 </h2>
                             </div>
                             <div className="w-14 h-14 bg-linear-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -98,7 +137,7 @@ export function HomePage() {
                                     Cuộc thi đã tham gia
                                 </p>
                                 <h2 className="text-gray-900 dark:text-white mt-2 text-3xl font-bold">
-                                    8
+                                    {stats?.contestsJoined || 0}
                                 </h2>
                             </div>
                             <div className="w-14 h-14 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -122,51 +161,60 @@ export function HomePage() {
                             className="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium shadow-sm hover:border-gray-400 transition-all cursor-pointer"
                         >
                             <option value="all">Tất cả trạng thái</option>
-                            <option value="upcoming">Sắp diễn ra</option>
-                            <option value="ongoing">Đang diễn ra</option>
-                            <option value="finished">Đã kết thúc</option>
+                            <option value="UPCOMING">Sắp diễn ra</option>
+                            <option value="RUNNING">Đang diễn ra</option>
+                            <option value="FINISHED">Đã kết thúc</option>
                         </select>
                     </div>
                 </div>
 
                 <div className="space-y-3">
-                    {filteredContests.map((contest) => (
-                        <Card key={contest.id} hover={true}>
+                    {filteredContests.length === 0 ? (
+                        <Card>
                             <CardBody>
-                                <div
-                                    className="flex items-start justify-between gap-6 cursor-pointer"
-                                    onClick={() => <Navigate to={`/contests/${contest.id}`} />}
-                                >
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <h3 className="text-gray-900 dark:text-white font-semibold">
-                                                {contest.name}
-                                            </h3>
-                                            {getContestStatusBadge(contest.status)}
-                                        </div>
-                                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 leading-relaxed">
-                                            {contest.description}
-                                        </p>
-                                        <div className="flex items-center gap-8 text-sm text-gray-500 dark:text-gray-400">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="w-4 h-4" />
-                                                <span>{formatDate(contest.startTime)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Users className="w-4 h-4" />
-                                                <span>{contest.participants} người tham gia</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Trophy className="w-4 h-4" />
-                                                <span>{contest.problems.length} bài tập</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-6 h-6 text-gray-500 shrink-0" />
-                                </div>
+                                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                                    Không có cuộc thi nào.
+                                </p>
                             </CardBody>
                         </Card>
-                    ))}
+                    ) : (
+                        filteredContests.map((contest) => (
+                            <Card key={contest.contestId} hover={true}>
+                                <CardBody>
+                                    <div
+                                        className="flex items-start justify-between gap-6 cursor-pointer"
+                                        onClick={() => navigate(`/contests/${contest.contestId}`)}
+                                    >
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <h3 className="text-gray-900 dark:text-white font-semibold">
+                                                    {contest.contestName}
+                                                </h3>
+                                                {getContestStatusBadge(contest.state)}
+                                            </div>
+                                            <div className="flex items-center gap-8 text-sm text-gray-500 dark:text-gray-400">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-4 h-4" />
+                                                    <span>{formatDate(contest.startTime)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Users className="w-4 h-4" />
+                                                    <span>
+                                                        {contest.participantCount} người tham gia
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Trophy className="w-4 h-4" />
+                                                    <span>{contest.problemCount} bài tập</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="w-6 h-6 text-gray-500 shrink-0" />
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        ))
+                    )}
                 </div>
             </div>
 
@@ -183,9 +231,9 @@ export function HomePage() {
                             className="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium shadow-sm hover:border-gray-400 transition-all cursor-pointer"
                         >
                             <option value="all">Tất cả độ khó</option>
-                            <option value="Easy">Dễ</option>
-                            <option value="Medium">Trung bình</option>
-                            <option value="Hard">Khó</option>
+                            <option value="EASY">Dễ</option>
+                            <option value="MEDIUM">Trung bình</option>
+                            <option value="HARD">Khó</option>
                         </select>
                     </div>
                 </div>
@@ -202,10 +250,7 @@ export function HomePage() {
                                         Độ khó
                                     </th>
                                     <th className="px-4 py-2 text-left text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold tracking-wider">
-                                        Tỷ lệ AC
-                                    </th>
-                                    <th className="px-4 py-2 text-left text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold tracking-wider">
-                                        Số bài nộp
+                                        Điểm tối đa
                                     </th>
                                     <th className="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold tracking-wider">
                                         Hành động
@@ -213,37 +258,52 @@ export function HomePage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredProblems.map((problem) => (
-                                    <tr
-                                        key={problem.id}
-                                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group"
-                                        onClick={() => <Navigate to={`/problems/${problem.id}`} />}
-                                    >
-                                        <td className="px-4 py-3">
-                                            <div className="text-gray-900 dark:text-white font-medium group-hover:text-red-600 transition-colors">
-                                                {problem.title}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <DifficultyBadge difficulty={problem.difficulty} />
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className="text-gray-600 dark:text-gray-400 font-medium">
-                                                {problem.acceptanceRate}%
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className="text-gray-600 dark:text-gray-400 font-medium">
-                                                {problem.totalSubmissions}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <Button size="sm" variant="primary">
-                                                Giải
-                                            </Button>
+                                {filteredProblems.length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan={4}
+                                            className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                                        >
+                                            Không có bài tập nào.
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    filteredProblems.map((problem) => (
+                                        <tr
+                                            key={problem.problemId}
+                                            className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group"
+                                            onClick={() =>
+                                                navigate(`/problems/${problem.problemId}`)
+                                            }
+                                        >
+                                            <td className="px-4 py-3">
+                                                <div className="text-gray-900 dark:text-white font-medium group-hover:text-red-600 transition-colors">
+                                                    {problem.title}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <DifficultyBadge
+                                                    difficulty={
+                                                        problem.difficulty as
+                                                            | "EASY"
+                                                            | "MEDIUM"
+                                                            | "HARD"
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-gray-600 dark:text-gray-400 font-medium">
+                                                    {problem.maxScore}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <Button size="sm" variant="primary">
+                                                    Giải
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>

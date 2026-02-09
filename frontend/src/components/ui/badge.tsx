@@ -25,21 +25,23 @@ export function Badge({ children, variant = "default", className = "" }: BadgePr
 }
 
 interface DifficultyBadgeProps {
-    difficulty: "Easy" | "Medium" | "Hard";
+    difficulty: "EASY" | "MEDIUM" | "HARD";
 }
 
 export function DifficultyBadge({ difficulty }: DifficultyBadgeProps) {
+    const displayText = difficulty.charAt(0) + difficulty.slice(1).toLowerCase();
+
     const difficultyStyles = {
-        Easy: "bg-green-100 text-green-700 border border-green-200",
-        Medium: "bg-yellow-100 text-yellow-700 border border-yellow-200",
-        Hard: "bg-red-100 text-red-700 border border-red-200",
+        EASY: "bg-green-100 text-green-700 border border-green-200",
+        MEDIUM: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+        HARD: "bg-red-100 text-red-700 border border-red-200",
     };
 
     return (
         <span
             className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold ${difficultyStyles[difficulty]}`}
         >
-            {difficulty}
+            {displayText}
         </span>
     );
 }

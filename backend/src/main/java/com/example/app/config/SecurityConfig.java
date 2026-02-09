@@ -78,17 +78,17 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/problems/**").hasAuthority("PROBLEM_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/problems/**").hasAuthority("PROBLEM_READ")
 
                         // Testcase
-                        .requestMatchers(HttpMethod.POST, "/testcases/**").hasAuthority("TESTCASE_CREATE")
-                        .requestMatchers(HttpMethod.PUT, "/testcases/**").hasAuthority("TESTCASE_UPDATE")
-                        .requestMatchers(HttpMethod.DELETE, "/testcases/**").hasAuthority("TESTCASE_DELETE")
-                        .requestMatchers(HttpMethod.GET, "/testcases/hidden/**").hasAuthority("TESTCASE_READ_HIDDEN")
+                        .requestMatchers(HttpMethod.POST, "/api/testcases/**").hasAuthority("TESTCASE_CREATE")
+                        .requestMatchers(HttpMethod.PUT, "/api/testcases/**").hasAuthority("TESTCASE_UPDATE")
+                        .requestMatchers(HttpMethod.DELETE, "/api/testcases/**").hasAuthority("TESTCASE_DELETE")
+                        .requestMatchers(HttpMethod.GET, "/api/testcases/hidden/**").hasAuthority("TESTCASE_READ_HIDDEN")
 
                         // Submission
-                        .requestMatchers(HttpMethod.POST, "/submissions").hasAuthority("SUBMISSION_CREATE")
-                        .requestMatchers("/submissions/rejudge/**").hasAuthority("SUBMISSION_REJUDGE")
+                        .requestMatchers(HttpMethod.POST, "/api/submissions").hasAuthority("SUBMISSION_CREATE")
+                        .requestMatchers("/api/submissions/rejudge/**").hasAuthority("SUBMISSION_REJUDGE")
                         .anyRequest().authenticated())
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)

@@ -23,8 +23,8 @@ public class RegisterRequest {
     private String email;
     
     @NotBlank(message = "Password is required")
-    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[A-Za-z\\d]{8,}$",
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$",
             message = "Password must include uppercase, lowercase and number"
     )
-    private String hashPassword;
+    private String password;
 }

@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input, Select } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/Modal";
-import { ArrowLeft, Plus, Search, Edit, Trash2, UserCheck, UserX } from "lucide-react";
-import { mockUsers, type User } from "~/lib/mock-data";
+import { ArrowLeft, Plus, Search, Edit, Trash2, UserCheck, UserX, Loader2 } from "lucide-react";
+import { userService, type UserResponse } from "~/services/userService";
 import { UserRole } from "~/services/authService";
 
 interface UserManagementProps {
@@ -13,12 +13,13 @@ interface UserManagementProps {
 }
 
 export function UserManagement({ onNavigate }: UserManagementProps) {
-    const [users, setUsers] = useState<User[]>(mockUsers);
+    const [users, setUsers] = useState<UserResponse[]>([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [roleFilter, setRoleFilter] = useState<string>("all");
     const [createUserModal, setCreateUserModal] = useState(false);
-    const [editUserModal, setEditUserModal] = useState<User | null>(null);
-    const [deleteUserModal, setDeleteUserModal] = useState<User | null>(null);
+    const [editUserModal, setEditUserModal] = useState<UserResponse | null>(null);
+    const [deleteUserModal, setDeleteUserModal] = useState<UserResponse | null>(null);
 
     // New user form
     const [newUser, setNewUser] = useState({
@@ -27,53 +28,91 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
         role: UserRole.STUDENT,
     });
 
+    useEffect(() => {
+        async function fetchUsers() {
+            try {
+                setLoading(true);
+                const data = await userService.getUsers();
+                setUsers(data);
+            } catch (error) {
+                console.error("Error fetching users:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchUsers();
+    }, []);
+
     const filteredUsers = users.filter((user) => {
         const matchesSearch =
-            user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.email.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesRole = roleFilter === "all" || user.role === roleFilter;
+        const matchesRole = roleFilter === "all" || user.roleName.toLowerCase() === roleFilter;
         return matchesSearch && matchesRole;
     });
 
-    const handleCreateUser = () => {
-        const user: User = {
-            id: `u${users.length + 1}`,
-            ...newUser,
-            enabled: true,
-            solvedProblems: 0,
-            totalSubmissions: 0,
-        };
-        setUsers([...users, user]);
-        setCreateUserModal(false);
-        setNewUser({ name: "", email: "", role: UserRole.STUDENT });
+    const handleCreateUser = async () => {
+        try {
+            await userService.createUser({
+                fullName: newUser.name,
+                email: newUser.email,
+                roleName: newUser.role.toUpperCase() as "STUDENT" | "INSTRUCTOR" | "ADMIN",
+            });
+
+            // Refresh user list
+            const data = await userService.getUsers();
+            setUsers(data);
+
+            alert("User created successfully! Credentials sent to email.");
+            setCreateUserModal(false);
+            setNewUser({ name: "", email: "", role: UserRole.STUDENT });
+        } catch (error) {
+            console.error("Error creating user:", error);
+            alert("Failed to create user. Please try again.");
+        }
     };
 
-    const handleUpdateUser = () => {
+    const handleUpdateUser = async () => {
         if (!editUserModal) return;
-        setUsers(users.map((u) => (u.id === editUserModal.id ? editUserModal : u)));
+        try {
+            await userService.updateUser(editUserModal.userId, editUserModal);
+            const data = await userService.getUsers();
+            setUsers(data);
+        } catch (error) {
+            console.error("Error updating user:", error);
+        }
         setEditUserModal(null);
     };
 
-    const handleDeleteUser = () => {
+    const handleDeleteUser = async () => {
         if (!deleteUserModal) return;
-        setUsers(users.filter((u) => u.id !== deleteUserModal.id));
+        try {
+            await userService.deleteUser(deleteUserModal.userId);
+            setUsers(users.filter((u) => u.userId !== deleteUserModal.userId));
+        } catch (error) {
+            console.error("Error deleting user:", error);
+        }
         setDeleteUserModal(null);
     };
 
-    const toggleUserStatus = (userId: string) => {
-        setUsers(users.map((u) => (u.id === userId ? { ...u, enabled: !u.enabled } : u)));
-    };
-
-    const getRoleBadgeVariant = (role: UserRole) => {
-        switch (role) {
-            case UserRole.ADMIN:
+    const getRoleBadgeVariant = (roleName: string) => {
+        switch (roleName.toUpperCase()) {
+            case "ADMIN":
                 return "error" as const;
-            case UserRole.INSTRUCTOR:
+            case "INSTRUCTOR":
                 return "warning" as const;
             default:
                 return "info" as const;
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -90,8 +129,8 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
 
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-(--text-primary) mb-2">User Management</h1>
-                        <p className="text-(--text-secondary)">
+                        <h1 className="text-gray-900 dark:text-white mb-2">User Management</h1>
+                        <p className="text-gray-600 dark:text-gray-400">
                             Create, edit, and manage user accounts and permissions.
                         </p>
                     </div>
@@ -106,31 +145,33 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                     <CardBody>
-                        <p className="text-(--text-tertiary) text-sm">Total Users</p>
-                        <h3 className="text-(--text-primary) mt-1">{users.length}</h3>
-                    </CardBody>
-                </Card>
-                <Card>
-                    <CardBody>
-                        <p className="text-(--text-tertiary) text-sm">Students</p>
-                        <h3 className="text-(--text-primary) mt-1">
-                            {users.filter((u) => u.role === "student").length}
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">Total Users</p>
+                        <h3 className="text-gray-900 dark:text-white text-2xl font-bold mt-1">
+                            {users.length}
                         </h3>
                     </CardBody>
                 </Card>
                 <Card>
                     <CardBody>
-                        <p className="text-(--text-tertiary) text-sm">Instructors</p>
-                        <h3 className="text-(--text-primary) mt-1">
-                            {users.filter((u) => u.role === "instructor").length}
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">Students</p>
+                        <h3 className="text-gray-900 dark:text-white text-2xl font-bold mt-1">
+                            {users.filter((u) => u.roleName === "STUDENT").length}
                         </h3>
                     </CardBody>
                 </Card>
                 <Card>
                     <CardBody>
-                        <p className="text-(--text-tertiary) text-sm">Active</p>
-                        <h3 className="text-(--text-primary) mt-1">
-                            {users.filter((u) => u.enabled).length}
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">Instructors</p>
+                        <h3 className="text-gray-900 dark:text-white text-2xl font-bold mt-1">
+                            {users.filter((u) => u.roleName === "INSTRUCTOR").length}
+                        </h3>
+                    </CardBody>
+                </Card>
+                <Card>
+                    <CardBody>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">Active</p>
+                        <h3 className="text-gray-900 dark:text-white text-2xl font-bold mt-1">
+                            {users.filter((u) => u.isActive).length}
                         </h3>
                     </CardBody>
                 </Card>
@@ -141,20 +182,20 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                 <CardBody>
                     <div className="flex gap-4">
                         <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-tertiary)" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search by name or email..."
-                                className="w-full pl-10 pr-4 py-2 bg-(--bg-primary) border border-(--border-color) rounded-lg text-(--text-primary) focus:outline-none focus:ring-2 focus:ring-(--primary-500)"
+                                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                             />
                         </div>
 
                         <select
                             value={roleFilter}
                             onChange={(e) => setRoleFilter(e.target.value)}
-                            className="px-4 py-2 bg-(--bg-primary) border border-(--border-color) rounded-lg text-(--text-primary) focus:outline-none focus:ring-2 focus:ring-(--primary-500)"
+                            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                         >
                             <option value="all">All Roles</option>
                             <option value="student">Students</option>
@@ -170,20 +211,17 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-(--border-color)">
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
+                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
                                     User
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
                                     Role
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
+                                <th className="px-6 py-3 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
                                     Status
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Stats
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs text-(--text-tertiary) uppercase">
+                                <th className="px-6 py-3 text-right text-xs text-gray-500 dark:text-gray-400 uppercase">
                                     Actions
                                 </th>
                             </tr>
@@ -191,55 +229,33 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                         <tbody>
                             {filteredUsers.map((user) => (
                                 <tr
-                                    key={user.id}
-                                    className="border-b border-(--border-color) hover:bg-(--bg-tertiary) transition-colors"
+                                    key={user.userId}
+                                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                 >
                                     <td className="px-6 py-4">
                                         <div>
-                                            <div className="text-(--text-primary)">
-                                                {user.name}
+                                            <div className="text-gray-900 dark:text-white">
+                                                {user.fullName}
                                             </div>
-                                            <div className="text-sm text-(--text-tertiary)">
+                                            <div className="text-sm text-gray-500 dark:text-gray-400">
                                                 {user.email}
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <Badge variant={getRoleBadgeVariant(user.role)}>
-                                            {user.role.toUpperCase()}
+                                        <Badge variant={getRoleBadgeVariant(user.roleName)}>
+                                            {user.roleName}
                                         </Badge>
                                     </td>
                                     <td className="px-6 py-4">
-                                        {user.enabled ? (
+                                        {user.isActive ? (
                                             <Badge variant="success">Active</Badge>
                                         ) : (
                                             <Badge variant="error">Disabled</Badge>
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {user.role === "student" && (
-                                            <span className="text-sm text-(--text-secondary)">
-                                                {user.solvedProblems} solved |{" "}
-                                                {user.totalSubmissions} submissions
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
                                         <div className="flex items-center justify-end gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => toggleUserStatus(user.id)}
-                                                title={
-                                                    user.enabled ? "Disable user" : "Enable user"
-                                                }
-                                            >
-                                                {user.enabled ? (
-                                                    <UserX className="w-4 h-4" />
-                                                ) : (
-                                                    <UserCheck className="w-4 h-4" />
-                                                )}
-                                            </Button>
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
@@ -262,7 +278,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                     </table>
 
                     {filteredUsers.length === 0 && (
-                        <div className="text-center py-12 text-(--text-tertiary)">
+                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                             No users found
                         </div>
                     )}
@@ -314,56 +330,6 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                 </div>
             </Modal>
 
-            {/* Edit User Modal */}
-            {editUserModal && (
-                <Modal
-                    isOpen={true}
-                    onClose={() => setEditUserModal(null)}
-                    title="Edit User"
-                    footer={
-                        <>
-                            <Button variant="outline" onClick={() => setEditUserModal(null)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={handleUpdateUser}>Save Changes</Button>
-                        </>
-                    }
-                >
-                    <div className="space-y-4">
-                        <Input
-                            label="Full Name"
-                            value={editUserModal.name}
-                            onChange={(e) =>
-                                setEditUserModal({ ...editUserModal, name: e.target.value })
-                            }
-                        />
-                        <Input
-                            label="Email"
-                            type="email"
-                            value={editUserModal.email}
-                            onChange={(e) =>
-                                setEditUserModal({ ...editUserModal, email: e.target.value })
-                            }
-                        />
-                        <Select
-                            label="Role"
-                            value={editUserModal.role}
-                            onChange={(e) =>
-                                setEditUserModal({
-                                    ...editUserModal,
-                                    role: e.target.value as UserRole,
-                                })
-                            }
-                            options={[
-                                { value: "student", label: "Student" },
-                                { value: "instructor", label: "Instructor" },
-                                { value: "admin", label: "Admin" },
-                            ]}
-                        />
-                    </div>
-                </Modal>
-            )}
-
             {/* Delete User Modal */}
             {deleteUserModal && (
                 <Modal
@@ -381,8 +347,8 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                         </>
                     }
                 >
-                    <p className="text-(--text-primary)">
-                        Are you sure you want to delete <strong>{deleteUserModal.name}</strong>?
+                    <p className="text-gray-900 dark:text-white">
+                        Are you sure you want to delete <strong>{deleteUserModal.fullName}</strong>?
                         This action cannot be undone.
                     </p>
                 </Modal>

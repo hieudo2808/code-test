@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import type { User } from "~/lib/mock-data";
 import {
     authService,
+    type User,
     type LoginCredentials,
     type RegisterData,
     type UserRole,
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const login = useCallback(async (credentials: LoginCredentials) => {
-        const response = authService.login(credentials);
+        const response = await authService.login(credentials);
         if (response.success && response.user) {
             setUser(response.user);
             return { success: true };
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const register = useCallback(async (data: RegisterData) => {
-        const response = authService.register(data);
+        const response = await authService.register(data);
         if (response.success && response.user) {
             setUser(response.user);
             return { success: true };

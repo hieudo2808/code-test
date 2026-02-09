@@ -20,4 +20,6 @@ public interface UserRepository extends JpaRepository<Users, UUID> {
     Optional<Users> findByEmailWithRoleAndPermissions(@Param("email") String email);
     
     boolean existsByEmail(String email);
+
+    long countByIsActiveTrue();
 }

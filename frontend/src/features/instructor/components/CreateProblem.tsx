@@ -4,12 +4,14 @@ import { Button } from "~/components/ui/button";
 import { Input, TextArea } from "~/components/ui/input";
 import { CodeEditor } from "~/components/ui/CodeEditor";
 import { ArrowLeft, Plus, Trash2, AlertTriangle, Check } from "lucide-react";
+import { LANGUAGE_OPTIONS } from "~/services/problemService";
 
 interface CreateProblemProps {
     onNavigate: (page: string) => void;
 }
 
 type TestcaseMode = "auto" | "manual";
+type EvaluationType = "EXACT" | "HEURISTIC" | "MANUAL";
 
 interface Testcase {
     id: string;
@@ -29,6 +31,16 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
     const [description, setDescription] = useState("");
     const [timeLimit, setTimeLimit] = useState("1000");
     const [memoryLimit, setMemoryLimit] = useState("256");
+    const [evaluationType, setEvaluationType] = useState<EvaluationType>("EXACT");
+
+    // Solution code for auto-generating outputs
+    const [solutionCode, setSolutionCode] = useState("");
+    const [solutionLanguageId, setSolutionLanguageId] = useState(54); // C++ default
+
+    // Scorer code for heuristic judging
+    const [scorerCode, setScorerCode] = useState("");
+    const [scorerLanguageId, setScorerLanguageId] = useState(54);
+
     const [testcases, setTestcases] = useState<Testcase[]>([
         {
             id: "1",
@@ -66,11 +78,40 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
         setTestcases(testcases.map((tc) => (tc.id === id ? { ...tc, ...updates } : tc)));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Validate and submit
-        console.log("Problem created:", { problemName, description, testcases });
-        onNavigate("instructor-dashboard");
+        try {
+            const { problemService } = await import("~/services/problemService");
+
+            // Generate slug from problem name
+            const slug = problemName
+                .toLowerCase()
+                .replace(/\s+/g, "-")
+                .replace(/[^a-z0-9-]/g, "");
+
+            await problemService.createProblem({
+                title: problemName,
+                slug,
+                problemDescription: description,
+                evaluationType,
+                timeLimit: parseFloat(timeLimit) / 1000, // Convert ms to seconds
+                memoryLimit: parseInt(memoryLimit),
+                difficulty: "MEDIUM",
+                isPublic: true,
+                maxScore: totalScore,
+                solutionCode: solutionCode || undefined,
+                solutionLanguageId: solutionCode ? solutionLanguageId : undefined,
+                scorerCode: evaluationType === "HEURISTIC" ? scorerCode : undefined,
+                scorerLanguageId:
+                    evaluationType === "HEURISTIC" && scorerCode ? scorerLanguageId : undefined,
+            });
+
+            alert("Problem created successfully!");
+            onNavigate("instructor-dashboard");
+        } catch (error) {
+            console.error("Error creating problem:", error);
+            alert("Failed to create problem. Please try again.");
+        }
     };
 
     const totalScore = testcases
@@ -137,8 +178,102 @@ export function CreateProblem({ onNavigate }: CreateProblemProps) {
                                 required
                             />
                         </div>
+
+                        {/* Evaluation Type */}
+                        <div>
+                            <label className="block text-sm mb-2 text-(--text-primary)">
+                                Evaluation Type
+                            </label>
+                            <select
+                                value={evaluationType}
+                                onChange={(e) =>
+                                    setEvaluationType(e.target.value as EvaluationType)
+                                }
+                                className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
+                            >
+                                <option value="EXACT">
+                                    Exact Match (so sánh output chính xác)
+                                </option>
+                                <option value="HEURISTIC">
+                                    Heuristic (dùng scorer để chấm điểm)
+                                </option>
+                                <option value="MANUAL">Manual Review (chấm tay)</option>
+                            </select>
+                        </div>
                     </CardBody>
                 </Card>
+
+                {/* Solution Code - for auto-generating outputs */}
+                <Card>
+                    <CardHeader>
+                        <h3 className="text-(--text-primary)">Solution Code (Optional)</h3>
+                        <p className="text-sm text-(--text-secondary) mt-1">
+                            Provide your solution code to auto-generate expected outputs for
+                            testcases.
+                        </p>
+                    </CardHeader>
+                    <CardBody className="space-y-4">
+                        <div>
+                            <label className="block text-sm mb-2 text-(--text-primary)">
+                                Language
+                            </label>
+                            <select
+                                value={solutionLanguageId}
+                                onChange={(e) => setSolutionLanguageId(parseInt(e.target.value))}
+                                className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
+                            >
+                                {LANGUAGE_OPTIONS.map((lang) => (
+                                    <option key={lang.id} value={lang.id}>
+                                        {lang.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <CodeEditor
+                            value={solutionCode}
+                            onChange={(value) => setSolutionCode(value)}
+                            placeholder="// Enter your solution code here..."
+                        />
+                    </CardBody>
+                </Card>
+
+                {/* Scorer Code - only for HEURISTIC */}
+                {evaluationType === "HEURISTIC" && (
+                    <Card>
+                        <CardHeader>
+                            <h3 className="text-(--text-primary)">
+                                Scorer Code (Required for Heuristic)
+                            </h3>
+                            <p className="text-sm text-(--text-secondary) mt-1">
+                                Custom scorer to validate and score user outputs. Must output
+                                "score:0.0-1.0" and "message:...".
+                            </p>
+                        </CardHeader>
+                        <CardBody className="space-y-4">
+                            <div>
+                                <label className="block text-sm mb-2 text-(--text-primary)">
+                                    Language
+                                </label>
+                                <select
+                                    value={scorerLanguageId}
+                                    onChange={(e) => setScorerLanguageId(parseInt(e.target.value))}
+                                    className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
+                                >
+                                    {LANGUAGE_OPTIONS.map((lang) => (
+                                        <option key={lang.id} value={lang.id}>
+                                            {lang.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <CodeEditor
+                                value={scorerCode}
+                                onChange={(value) => setScorerCode(value)}
+                                placeholder={`// Scorer input format:\n// <testInput>\n// ---SEPARATOR---\n// <userOutput>\n// ---SEPARATOR---\n// <expectedOutput>\n\n// Output format:\n// score:0.85\n// message:Partial match`}
+                            />
+                        </CardBody>
+                    </Card>
+                )}
 
                 {/* Test Cases */}
                 <Card>

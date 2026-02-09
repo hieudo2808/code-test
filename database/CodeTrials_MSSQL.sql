@@ -163,7 +163,7 @@ CREATE TABLE UserNotifications (
 Create table Contests (
 	contestId UNIQUEIDENTIFIER PRIMARY KEY NOT NULL,
 	contestName NVARCHAR(200) NOT NULL,
-	contestOwner UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Users(userId) ON DELETE SET NULL, --
+	contestOwner UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Users(userId) ON DELETE SET NULL,
 	startTime DATETIMEOFFSET,
 	endTime DATETIMEOFFSET,
 	isPublic BIT DEFAULT 1,
@@ -183,6 +183,8 @@ Create table Problems (
 	difficulty VARCHAR(6) CHECK (difficulty IN ('EASY', 'MEDIUM', 'HARD')),
 	sampleInput NVARCHAR(MAX),
 	sampleOutput NVARCHAR(MAX),
+	isPublic BIT DEFAULT 1,
+    maxScore FLOAT DEFAULT 100,
 	createAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
     updateAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
 )
@@ -205,24 +207,32 @@ Create table ContestParticipants (
 Create table Testcases (
 	testcaseId UNIQUEIDENTIFIER PRIMARY KEY,
 	problemId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES Problems(problemId) ON DELETE CASCADE,
-	input NVARCHAR(MAX),
-	expectedOutput NVARCHAR(MAX),
+	inputPath VARCHAR(500) NOT NULL,
+    outputPath VARCHAR(500) NOT NULL,
+	inputSizeKb INT,
+    outputSizeKb INT,
 	testcasePoint FLOAT(53),
 	isHidden BIT DEFAULT 0
 )
 
 Create table Submissions (
 	submissionId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
-	submissionToken VARCHAR(50) UNIQUE,
 	submitterId UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Users(userId) ON DELETE SET NULL,
 	problemId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES Problems(problemId) ON DELETE CASCADE,
 	contestId UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Contests(contestId) ON DELETE SET NULL,
 	sourceCode NVARCHAR(MAX) NOT NULL,
-	codeLanguage VARCHAR(16) NOT NULL,
 	languageId INT NOT NULL,
 	submissionStatus VARCHAR(20) NOT NULL CHECK (submissionStatus IN ('PENDING', 'COMPILING', 'RUNNING', 'EVALUATING', 'NEED_REVIEW', 'DONE', 'ERROR')),
 	finalScore FLOAT(53),
 	finalVerdict VARCHAR(20) CHECK (finalVerdict IN ('ACCEPTED', 'PARTIAL', 'FAILED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT', 'SCORED', 'MANUAL')),
+	
+	compileTimeMs FLOAT,
+    totalTimeMs FLOAT,
+    peakMemoryKb FLOAT,
+
+    judgeNode VARCHAR(64),
+    judgeVersion VARCHAR(32),
+
 	createAt DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
 	updateAt DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
 )
@@ -230,11 +240,12 @@ Create table Submissions (
 -- Results
 Create table SubmissionResults (
 	submissionResultId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+	judge0Token VARCHAR(50),  -- Judge0 submission token
 	submissionId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES Submissions(submissionId) ON DELETE CASCADE,
 	testCaseId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES Testcases(testCaseId) ON DELETE NO ACTION,
 	UNIQUE(submissionId, testCaseId),
-	stdout NVARCHAR(MAX),
-	stderr NVARCHAR(MAX),
+
+    errorMessage NVARCHAR(500),
 	timeMs FLOAT(53),
 	memoryKb FLOAT(53),
 	score FLOAT(53),
@@ -262,6 +273,28 @@ CREATE TABLE PlagiarismChecks (
     checkedAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
 );
 
+-- Languages (Judge0 language IDs)
+CREATE TABLE Languages (
+    languageId INT PRIMARY KEY,           -- Judge0 ID
+    name NVARCHAR(100) NOT NULL,          -- "C++ (GCC 9.2)"
+    extension VARCHAR(10),                 -- "cpp"
+    monacoLanguage VARCHAR(20),            -- "cpp" for Monaco Editor
+    isActive BIT DEFAULT 1
+);
+
+-- Seed common languages
+INSERT INTO Languages (languageId, name, extension, monacoLanguage) VALUES
+(50, 'C (GCC 9.2)', 'c', 'c'),
+(54, 'C++ (GCC 9.2)', 'cpp', 'cpp'),
+(62, 'Java (OpenJDK 13)', 'java', 'java'),
+(71, 'Python (3.8)', 'py', 'python'),
+(63, 'JavaScript (Node.js 12)', 'js', 'javascript'),
+(51, 'C# (Mono 6.6)', 'cs', 'csharp'),
+(72, 'Ruby (2.7)', 'rb', 'ruby'),
+(68, 'PHP (7.4)', 'php', 'php'),
+(73, 'Rust (1.40)', 'rs', 'rust'),
+(60, 'Go (1.13)', 'go', 'go');
+
 -- Indexes
 CREATE INDEX IX_Submissions_User ON Submissions(submitterId);
 CREATE INDEX IX_Submissions_Problem ON Submissions(problemId);
@@ -276,3 +309,5 @@ CREATE INDEX IX_Users_Role ON Users(roleId) WHERE isActive = 1;
 CREATE INDEX IX_Submissions_CreatedAt ON Submissions(createAt DESC);
 CREATE INDEX IX_UserNotifications_User ON UserNotifications(userId, isRead);
 CREATE INDEX IX_Notifications_Type ON Notifications(notificationId, createdAt DESC);
+CREATE INDEX IX_Users_Email ON Users(email);
+CREATE INDEX IX_Users_FullName ON Users(fullName);
