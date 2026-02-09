@@ -20,8 +20,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Submission {
-
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "submissionId")
     private UUID submissionId;
 
@@ -83,9 +83,6 @@ public class Submission {
 
     @PrePersist
     public void prePersist() {
-        if (submissionId == null) {
-            submissionId = UUID.randomUUID();
-        }
         if (submissionStatus == null) {
             submissionStatus = SubmissionStatus.PENDING;
         }

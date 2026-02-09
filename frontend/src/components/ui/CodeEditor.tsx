@@ -8,6 +8,7 @@ interface CodeEditorProps {
     placeholder?: string;
     readOnly?: boolean;
     className?: string;
+    height?: string;
 }
 
 export function CodeEditor({
@@ -17,6 +18,7 @@ export function CodeEditor({
     placeholder = "// Write your code here...",
     readOnly = false,
     className = "",
+    height = "450px",
 }: CodeEditorProps) {
     const languageMap: Record<string, string> = {
         python: "python",
@@ -35,7 +37,7 @@ export function CodeEditor({
                 <span className="text-sm text-gray-400">Language: {language}</span>
             </div>
             <Editor
-                height="450px"
+                height={height}
                 language={monacoLanguage}
                 value={value}
                 onChange={(value) => onChange(value || "")}

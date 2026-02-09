@@ -55,7 +55,7 @@ public class JudgeService {
                         .language_id(submission.getLanguageId())
                         .source_code(submission.getSourceCode())
                         .stdin(input)
-                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() / 1000.0 : 5.0)
+                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
                         .memory_limit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
                         .build();
 
@@ -112,7 +112,7 @@ public class JudgeService {
                         .language_id(submission.getLanguageId())
                         .source_code(submission.getSourceCode())
                         .stdin(input)
-                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() / 1000.0 : 5.0)
+                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
                         .memory_limit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
                         .build();
 

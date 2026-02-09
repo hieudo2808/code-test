@@ -15,8 +15,6 @@ public class UpdateProblemRequest {
 
     @Size(max = 200, message = "Title must not exceed 200 characters")
     String title;
-
-    // Slug không cho update để giữ URL stable
     
     String problemDescription;
 
@@ -37,4 +35,9 @@ public class UpdateProblemRequest {
 
     @DecimalMin(value = "0.1", message = "Max score must be positive")
     Double maxScore;
+
+    String solutionCode;
+    Integer solutionLanguageId;
+    String scorerCode;
+    Integer scorerLanguageId;
 }

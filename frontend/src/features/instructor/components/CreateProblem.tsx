@@ -1,484 +1,626 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input, TextArea } from "~/components/ui/input";
 import { CodeEditor } from "~/components/ui/CodeEditor";
-import { ArrowLeft, Plus, Trash2, AlertTriangle, Check } from "lucide-react";
-import { LANGUAGE_OPTIONS } from "~/services/problemService";
+import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import {
+    problemService,
+    CreateProblemRequest,
+    UpdateProblemRequest,
+} from "~/services/problemService";
 
 interface CreateProblemProps {
     onNavigate: (page: string) => void;
+    problemId?: string;
 }
 
 type TestcaseMode = "auto" | "manual";
-type EvaluationType = "EXACT" | "HEURISTIC" | "MANUAL";
 
 interface Testcase {
-    id: string;
-    mode: TestcaseMode;
+    id?: string;
     input: string;
     output: string;
-    referenceCode: string;
-    timeLimit: number;
-    memoryLimit: number;
+    mode: TestcaseMode;
     score: number;
-    includeInScoring: boolean;
-    validationError?: string;
+    isHidden: boolean;
 }
 
-export function CreateProblem({ onNavigate }: CreateProblemProps) {
-    const [problemName, setProblemName] = useState("");
+export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
+    const isEditMode = !!problemId;
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Basic Info
+    const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [timeLimit, setTimeLimit] = useState("1000");
-    const [memoryLimit, setMemoryLimit] = useState("256");
-    const [evaluationType, setEvaluationType] = useState<EvaluationType>("EXACT");
+    const [evaluationType, setEvaluationType] = useState<"EXACT" | "HEURISTIC" | "MANUAL">("EXACT");
+    const [difficulty, setDifficulty] = useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
+    const [isPublic, setIsPublic] = useState(true);
 
-    // Solution code for auto-generating outputs
+    // Limits
+    const [timeLimit, setTimeLimit] = useState(1.0);
+    const [memoryLimit, setMemoryLimit] = useState(256);
+    const [maxScore, setMaxScore] = useState(100);
+
+    // Code
     const [solutionCode, setSolutionCode] = useState("");
-    const [solutionLanguageId, setSolutionLanguageId] = useState(54); // C++ default
-
-    // Scorer code for heuristic judging
+    const [solutionLanguageId, setSolutionLanguageId] = useState(71); // Python
     const [scorerCode, setScorerCode] = useState("");
-    const [scorerLanguageId, setScorerLanguageId] = useState(54);
+    const [scorerLanguageId, setScorerLanguageId] = useState(71); // Python
 
-    const [testcases, setTestcases] = useState<Testcase[]>([
-        {
-            id: "1",
-            mode: "manual",
-            input: "",
-            output: "",
-            referenceCode: "",
-            timeLimit: 1000,
-            memoryLimit: 256,
-            score: 100,
-            includeInScoring: true,
-        },
-    ]);
+    // Testcases
+    const [testcases, setTestcases] = useState<Testcase[]>([]);
+    const [deletedTestcaseIds, setDeletedTestcaseIds] = useState<string[]>([]);
 
-    const addTestcase = () => {
-        const newTestcase: Testcase = {
-            id: Date.now().toString(),
-            mode: "manual",
-            input: "",
-            output: "",
-            referenceCode: "",
-            timeLimit: parseInt(timeLimit),
-            memoryLimit: parseInt(memoryLimit),
-            score: 100,
-            includeInScoring: true,
-        };
-        setTestcases([...testcases, newTestcase]);
-    };
+    useEffect(() => {
+        if (isEditMode && problemId) {
+            fetchProblemData(problemId);
+        }
+    }, [isEditMode, problemId]);
 
-    const removeTestcase = (id: string) => {
-        setTestcases(testcases.filter((tc) => tc.id !== id));
-    };
-
-    const updateTestcase = (id: string, updates: Partial<Testcase>) => {
-        setTestcases(testcases.map((tc) => (tc.id === id ? { ...tc, ...updates } : tc)));
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const fetchProblemData = async (id: string) => {
+        setIsLoading(true);
         try {
-            const { problemService } = await import("~/services/problemService");
+            const problem = await problemService.getProblem(id);
+            const tcs = await problemService.getTestcases(id);
 
-            // Generate slug from problem name
-            const slug = problemName
-                .toLowerCase()
-                .replace(/\s+/g, "-")
-                .replace(/[^a-z0-9-]/g, "");
+            // Access property safely. If 'description' exists use it, else 'problemDescription'
+            // @ts-ignore
+            const desc = problem.problemDescription || problem.description || "";
 
-            await problemService.createProblem({
-                title: problemName,
-                slug,
-                problemDescription: description,
-                evaluationType,
-                timeLimit: parseFloat(timeLimit) / 1000, // Convert ms to seconds
-                memoryLimit: parseInt(memoryLimit),
-                difficulty: "MEDIUM",
-                isPublic: true,
-                maxScore: totalScore,
-                solutionCode: solutionCode || undefined,
-                solutionLanguageId: solutionCode ? solutionLanguageId : undefined,
-                scorerCode: evaluationType === "HEURISTIC" ? scorerCode : undefined,
-                scorerLanguageId:
-                    evaluationType === "HEURISTIC" && scorerCode ? scorerLanguageId : undefined,
-            });
+            setTitle(problem.title);
+            setDescription(desc);
+            setEvaluationType((problem.evaluationType as any) || "EXACT");
+            setDifficulty((problem.difficulty as any) || "MEDIUM");
+            setIsPublic(problem.isPublic);
+            setTimeLimit(problem.timeLimit);
+            setMemoryLimit(problem.memoryLimit);
+            setMaxScore(problem.maxScore);
+            setSolutionCode(problem.solutionCode || "");
+            setSolutionLanguageId(problem.solutionLanguageId || 71);
+            setScorerCode(problem.scorerCode || "");
+            setScorerLanguageId(problem.scorerLanguageId || 71);
 
-            alert("Problem created successfully!");
-            onNavigate("instructor-dashboard");
+            // Map testcases
+            setTestcases(
+                tcs.map((tc) => ({
+                    id: tc.testcaseId,
+                    input: "", // Content not available
+                    output: "",
+                    mode: "manual", // Default to manual for existing
+                    score: tc.testcasePoint,
+                    isHidden: tc.isHidden,
+                }))
+            );
         } catch (error) {
-            console.error("Error creating problem:", error);
-            alert("Failed to create problem. Please try again.");
+            console.error("Failed to fetch problem data:", error);
+            // Handle error (notification?)
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const totalScore = testcases
-        .filter((tc) => tc.includeInScoring)
-        .reduce((sum, tc) => sum + tc.score, 0);
+    const handleAddTestcase = () => {
+        setTestcases([
+            ...testcases,
+            {
+                input: "",
+                output: "",
+                mode: "manual",
+                score: 10,
+                isHidden: false,
+            },
+        ]);
+    };
+
+    const handleRemoveTestcase = (index: number) => {
+        const tc = testcases[index];
+        if (tc.id) {
+            setDeletedTestcaseIds([...deletedTestcaseIds, tc.id]);
+        }
+        setTestcases(testcases.filter((_, i) => i !== index));
+    };
+
+    const handleUpdateTestcase = (index: number, field: keyof Testcase, value: any) => {
+        const newTestcases = [...testcases];
+        newTestcases[index] = { ...newTestcases[index], [field]: value };
+        setTestcases(newTestcases);
+    };
+
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            // 1. Create/Update Problem
+            let savedProblemId = problemId;
+
+            if (isEditMode && problemId) {
+                const updatePayload: UpdateProblemRequest = {
+                    title,
+                    problemDescription: description,
+                    evaluationType,
+                    difficulty,
+                    isPublic,
+                    timeLimit,
+                    memoryLimit,
+                    maxScore,
+                    solutionCode,
+                    solutionLanguageId,
+                    scorerCode,
+                    scorerLanguageId,
+                };
+                await problemService.updateProblem(problemId, updatePayload);
+            } else {
+                const createPayload: CreateProblemRequest = {
+                    title,
+                    slug: title.toLowerCase().replace(/ /g, "-") + "-" + Date.now(),
+                    problemDescription: description,
+                    evaluationType,
+                    difficulty,
+                    isPublic,
+                    timeLimit,
+                    memoryLimit,
+                    maxScore,
+                    solutionCode,
+                    solutionLanguageId,
+                    scorerCode,
+                    scorerLanguageId,
+                };
+                const response = await problemService.createProblem(createPayload);
+                // @ts-ignore
+                savedProblemId = response.problemId || response.id;
+            }
+
+            if (!savedProblemId) throw new Error("Problem ID missing after save");
+
+            // 2. Sync Testcases
+            // Handle Deleted
+            for (const deletedId of deletedTestcaseIds) {
+                await problemService.deleteTestcase(deletedId);
+            }
+
+            // Handle Create/Update
+            for (const tc of testcases) {
+                if (tc.id) {
+                    // Update existing (points/hidden only)
+                    const formData = new FormData();
+                    formData.append(
+                        "request",
+                        new Blob(
+                            [
+                                JSON.stringify({
+                                    testcasePoint: tc.score,
+                                    isHidden: tc.isHidden,
+                                }),
+                            ],
+                            { type: "application/json" }
+                        )
+                    );
+
+                    await problemService.updateTestcase(tc.id, formData);
+                } else {
+                    // Create new
+                    const formData = new FormData();
+                    formData.append(
+                        "request",
+                        new Blob(
+                            [
+                                JSON.stringify({
+                                    testcasePoint: tc.score,
+                                    isHidden: tc.isHidden,
+                                    timeLimit,
+                                    memoryLimit,
+                                }),
+                            ],
+                            { type: "application/json" }
+                        )
+                    );
+
+                    formData.append("input", new Blob([tc.input], { type: "text/plain" }));
+                    if (tc.mode === "auto") {
+                        formData.append("output", new Blob([""], { type: "text/plain" }));
+                    } else {
+                        formData.append("output", new Blob([tc.output], { type: "text/plain" }));
+                    }
+
+                    await problemService.createTestcase(savedProblemId, formData);
+                }
+            }
+
+            // 3. Trigger Output Generation for ANY testcase marked as auto
+            if (solutionCode && testcases.some((tc) => tc.mode === "auto")) {
+                await problemService.generateOutputs(savedProblemId);
+            }
+
+            onNavigate("instructor-dashboard");
+        } catch (error) {
+            console.error("Failed to save problem:", error);
+            alert("Failed to save problem. Check console for details.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
-            <div>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onNavigate("instructor-dashboard")}
-                    className="mb-4"
-                >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Dashboard
-                </Button>
-
-                <h1 className="text-(--text-primary) mb-2">Create Problem</h1>
-                <p className="text-(--text-secondary)">
-                    Define your problem and configure test cases.
-                </p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onNavigate("instructor-dashboard")}
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-(--text-primary)">
+                            {isEditMode ? "Edit Problem" : "Create New Problem"}
+                        </h1>
+                        <p className="text-(--text-secondary)">
+                            {isEditMode
+                                ? "Update problem details and testcases"
+                                : "Fill in the details below to create a new coding problem"}
+                        </p>
+                    </div>
+                </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Basic Information */}
-                <Card>
-                    <CardHeader>
-                        <h3 className="text-(--text-primary)">Basic Information</h3>
-                    </CardHeader>
-                    <CardBody className="space-y-4">
-                        <Input
-                            label="Problem Name"
-                            value={problemName}
-                            onChange={(e) => setProblemName(e.target.value)}
-                            placeholder="e.g., Two Sum"
-                            required
-                        />
-
-                        <TextArea
-                            label="Description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Provide a detailed problem description. You can use **bold**, UPPERCASE, and `code` formatting."
-                            rows={8}
-                            required
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <Input
-                                label="Time Limit (ms)"
-                                type="number"
-                                value={timeLimit}
-                                onChange={(e) => setTimeLimit(e.target.value)}
-                                required
-                            />
-
-                            <Input
-                                label="Memory Limit (MB)"
-                                type="number"
-                                value={memoryLimit}
-                                onChange={(e) => setMemoryLimit(e.target.value)}
-                                required
-                            />
-                        </div>
-
-                        {/* Evaluation Type */}
-                        <div>
-                            <label className="block text-sm mb-2 text-(--text-primary)">
-                                Evaluation Type
-                            </label>
-                            <select
-                                value={evaluationType}
-                                onChange={(e) =>
-                                    setEvaluationType(e.target.value as EvaluationType)
-                                }
-                                className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
-                            >
-                                <option value="EXACT">
-                                    Exact Match (so sánh output chính xác)
-                                </option>
-                                <option value="HEURISTIC">
-                                    Heuristic (dùng scorer để chấm điểm)
-                                </option>
-                                <option value="MANUAL">Manual Review (chấm tay)</option>
-                            </select>
-                        </div>
-                    </CardBody>
-                </Card>
-
-                {/* Solution Code - for auto-generating outputs */}
-                <Card>
-                    <CardHeader>
-                        <h3 className="text-(--text-primary)">Solution Code (Optional)</h3>
-                        <p className="text-sm text-(--text-secondary) mt-1">
-                            Provide your solution code to auto-generate expected outputs for
-                            testcases.
-                        </p>
-                    </CardHeader>
-                    <CardBody className="space-y-4">
-                        <div>
-                            <label className="block text-sm mb-2 text-(--text-primary)">
-                                Language
-                            </label>
-                            <select
-                                value={solutionLanguageId}
-                                onChange={(e) => setSolutionLanguageId(parseInt(e.target.value))}
-                                className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
-                            >
-                                {LANGUAGE_OPTIONS.map((lang) => (
-                                    <option key={lang.id} value={lang.id}>
-                                        {lang.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <CodeEditor
-                            value={solutionCode}
-                            onChange={(value) => setSolutionCode(value)}
-                            placeholder="// Enter your solution code here..."
-                        />
-                    </CardBody>
-                </Card>
-
-                {/* Scorer Code - only for HEURISTIC */}
-                {evaluationType === "HEURISTIC" && (
+            {/* Grid Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - Main Content */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Description */}
                     <Card>
                         <CardHeader>
-                            <h3 className="text-(--text-primary)">
-                                Scorer Code (Required for Heuristic)
+                            <h3 className="text-lg font-semibold text-(--text-primary)">
+                                Problem Description
                             </h3>
-                            <p className="text-sm text-(--text-secondary) mt-1">
-                                Custom scorer to validate and score user outputs. Must output
-                                "score:0.0-1.0" and "message:...".
-                            </p>
                         </CardHeader>
                         <CardBody className="space-y-4">
-                            <div>
-                                <label className="block text-sm mb-2 text-(--text-primary)">
-                                    Language
-                                </label>
-                                <select
-                                    value={scorerLanguageId}
-                                    onChange={(e) => setScorerLanguageId(parseInt(e.target.value))}
-                                    className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
-                                >
-                                    {LANGUAGE_OPTIONS.map((lang) => (
-                                        <option key={lang.id} value={lang.id}>
-                                            {lang.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <CodeEditor
-                                value={scorerCode}
-                                onChange={(value) => setScorerCode(value)}
-                                placeholder={`// Scorer input format:\n// <testInput>\n// ---SEPARATOR---\n// <userOutput>\n// ---SEPARATOR---\n// <expectedOutput>\n\n// Output format:\n// score:0.85\n// message:Partial match`}
+                            <TextArea
+                                label="Description (Markdown)"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Describe the problem statement, input/output format, constraints..."
+                                rows={10}
                             />
                         </CardBody>
                     </Card>
-                )}
 
-                {/* Test Cases */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
+                    {/* Evaluation & Code */}
+                    <Card>
+                        <CardHeader>
+                            <h3 className="text-lg font-semibold text-(--text-primary)">
+                                Evaluation & Solution
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-sm font-medium text-(--text-secondary) block mb-1">
+                                        Evaluation Type
+                                    </label>
+                                    <select
+                                        className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
+                                        value={evaluationType}
+                                        onChange={(e) => setEvaluationType(e.target.value as any)}
+                                    >
+                                        <option value="EXACT">Exact Match</option>
+                                        <option value="HEURISTIC">Heuristic (Custom Scorer)</option>
+                                        <option value="MANUAL">Manual Review</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Solution Code */}
                             <div>
-                                <h3 className="text-(--text-primary)">Test Cases</h3>
-                                <p className="text-sm text-(--text-secondary) mt-1">
-                                    Total Score: {totalScore} points
+                                <label className="text-sm font-medium text-(--text-secondary) block mb-1">
+                                    Solution Code (Optional)
+                                </label>
+                                <CodeEditor
+                                    value={solutionCode}
+                                    onChange={(value) => setSolutionCode(value)}
+                                    placeholder="// Enter reference solution code here..."
+                                    height="250px"
+                                    className="mb-1"
+                                />
+                                <p className="text-xs text-(--text-tertiary) mt-1">
+                                    Used for auto-generating outputs for testcases.
                                 </p>
                             </div>
-                            <Button type="button" size="sm" onClick={addTestcase}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add Test Case
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardBody className="space-y-6">
-                        {testcases.map((testcase, index) => (
-                            <div
-                                key={testcase.id}
-                                className="border border-(--border-color) rounded-lg p-4 space-y-4"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-(--text-primary)">Test Case {index + 1}</h4>
-                                    {testcases.length > 1 && (
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={() => removeTestcase(testcase.id)}
-                                        >
-                                            <Trash2 className="w-4 h-4 text-red-600" />
-                                        </Button>
-                                    )}
+
+                            {/* Heuristic Scorer */}
+                            {evaluationType === "HEURISTIC" && (
+                                <div>
+                                    <label className="text-sm font-medium text-(--text-secondary) block mb-1">
+                                        Custom Scorer
+                                    </label>
+                                    <CodeEditor
+                                        value={scorerCode}
+                                        onChange={(value) => setScorerCode(value)}
+                                        placeholder={`// Custom scorer logic...`}
+                                        height="250px"
+                                        className="mb-1"
+                                    />
                                 </div>
+                            )}
+                        </CardBody>
+                    </Card>
 
-                                <div className="space-y-4">
-                                    {/* Mode Selection */}
-                                    <div className="flex gap-4">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name={`mode-${testcase.id}`}
-                                                checked={testcase.mode === "manual"}
-                                                onChange={() =>
-                                                    updateTestcase(testcase.id, { mode: "manual" })
-                                                }
-                                                className="w-4 h-4 text-(--primary-600)"
-                                            />
-                                            <span className="text-(--text-primary)">
-                                                Manual Input/Output
-                                            </span>
-                                        </label>
-
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name={`mode-${testcase.id}`}
-                                                checked={testcase.mode === "auto"}
-                                                onChange={() =>
-                                                    updateTestcase(testcase.id, { mode: "auto" })
-                                                }
-                                                className="w-4 h-4 text-(--primary-600)"
-                                            />
-                                            <span className="text-(--text-primary)">
-                                                Auto-generate Output
-                                            </span>
-                                        </label>
+                    {/* Test Cases */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-(--text-primary)">
+                                    Test Cases
+                                </h3>
+                                <Button size="sm" onClick={handleAddTestcase}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add Test Case
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardBody className="space-y-6">
+                            {testcases.map((tc, index) => (
+                                <div
+                                    key={index}
+                                    className="p-4 bg-(--bg-secondary) rounded-lg border border-(--border-color) space-y-4"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-medium text-(--text-primary)">
+                                            Test Case #{index + 1}{" "}
+                                            {tc.id && (
+                                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">
+                                                    Existing
+                                                </span>
+                                            )}
+                                        </h4>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                            onClick={() => handleRemoveTestcase(index)}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
                                     </div>
 
-                                    {/* Input */}
-                                    <TextArea
-                                        label="Input"
-                                        value={testcase.input}
-                                        onChange={(e) =>
-                                            updateTestcase(testcase.id, { input: e.target.value })
-                                        }
-                                        placeholder="Enter test input..."
-                                        rows={4}
-                                    />
-
-                                    {/* Output or Reference Code */}
-                                    {testcase.mode === "manual" ? (
-                                        <TextArea
-                                            label="Expected Output"
-                                            value={testcase.output}
-                                            onChange={(e) =>
-                                                updateTestcase(testcase.id, {
-                                                    output: e.target.value,
-                                                })
-                                            }
-                                            placeholder="Enter expected output..."
-                                            rows={4}
-                                        />
+                                    {tc.id ? (
+                                        <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm text-center text-gray-500">
+                                            Input and Output content stored securely on server.
+                                            <br />
+                                            Only points and visibility can be edited.
+                                        </div>
                                     ) : (
-                                        <div>
-                                            <label className="block text-sm mb-2 text-(--text-primary)">
-                                                Reference Solution
-                                            </label>
-                                            <CodeEditor
-                                                value={testcase.referenceCode}
-                                                onChange={(value) =>
-                                                    updateTestcase(testcase.id, {
-                                                        referenceCode: value,
-                                                    })
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <TextArea
+                                                label="Input"
+                                                value={tc.input}
+                                                onChange={(e) =>
+                                                    handleUpdateTestcase(
+                                                        index,
+                                                        "input",
+                                                        e.target.value
+                                                    )
                                                 }
-                                                placeholder="// Write reference solution to auto-generate output"
-                                                className="mb-2"
+                                                placeholder="Enter test case input..."
+                                                rows={3}
                                             />
-                                            {testcase.validationError && (
-                                                <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                                                    <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
-                                                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                                                        {testcase.validationError}
+                                            {tc.mode === "manual" ? (
+                                                <TextArea
+                                                    label="Expected Output"
+                                                    value={tc.output}
+                                                    onChange={(e) =>
+                                                        handleUpdateTestcase(
+                                                            index,
+                                                            "output",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    placeholder="Enter expected output..."
+                                                    rows={3}
+                                                />
+                                            ) : (
+                                                <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg h-full">
+                                                    <p className="text-sm text-gray-500 text-center">
+                                                        Output will be generated using Solution Code
+                                                        on submit
                                                     </p>
-                                                </div>
-                                            )}
-                                            {testcase.output && (
-                                                <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                                    <Check className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                                                    <div className="flex-1">
-                                                        <p className="text-sm text-green-800 dark:text-green-200 mb-1">
-                                                            Output generated successfully
-                                                        </p>
-                                                        <pre className="text-xs text-green-700 dark:text-green-300">
-                                                            {testcase.output}
-                                                        </pre>
-                                                    </div>
                                                 </div>
                                             )}
                                         </div>
                                     )}
 
-                                    {/* Limits and Score */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <Input
-                                            label="Time Limit (ms)"
-                                            type="number"
-                                            value={testcase.timeLimit.toString()}
-                                            onChange={(e) =>
-                                                updateTestcase(testcase.id, {
-                                                    timeLimit: parseInt(e.target.value),
-                                                })
-                                            }
-                                        />
+                                    <div className="flex flex-wrap items-center gap-6">
+                                        {!tc.id && (
+                                            <div className="flex items-center gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        checked={tc.mode === "manual"}
+                                                        onChange={() =>
+                                                            handleUpdateTestcase(
+                                                                index,
+                                                                "mode",
+                                                                "manual"
+                                                            )
+                                                        }
+                                                        className="w-4 h-4 text-primary"
+                                                    />
+                                                    <span className="text-sm text-(--text-secondary)">
+                                                        Manual Output
+                                                    </span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        checked={tc.mode === "auto"}
+                                                        onChange={() =>
+                                                            handleUpdateTestcase(
+                                                                index,
+                                                                "mode",
+                                                                "auto"
+                                                            )
+                                                        }
+                                                        className="w-4 h-4 text-primary"
+                                                    />
+                                                    <span className="text-sm text-(--text-secondary)">
+                                                        Auto-generate Output
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        )}
 
-                                        <Input
-                                            label="Memory Limit (MB)"
-                                            type="number"
-                                            value={testcase.memoryLimit.toString()}
-                                            onChange={(e) =>
-                                                updateTestcase(testcase.id, {
-                                                    memoryLimit: parseInt(e.target.value),
-                                                })
-                                            }
-                                        />
-
-                                        <Input
-                                            label="Score"
-                                            type="number"
-                                            value={testcase.score.toString()}
-                                            onChange={(e) =>
-                                                updateTestcase(testcase.id, {
-                                                    score: parseInt(e.target.value),
-                                                })
-                                            }
-                                        />
-
-                                        <div className="flex items-end">
-                                            <label className="flex items-center gap-2 cursor-pointer pb-2">
+                                        <div className="flex items-center gap-4 ml-auto">
+                                            <div className="w-24">
+                                                <Input
+                                                    label="Score"
+                                                    type="number"
+                                                    value={tc.score}
+                                                    onChange={(e) =>
+                                                        handleUpdateTestcase(
+                                                            index,
+                                                            "score",
+                                                            parseFloat(e.target.value)
+                                                        )
+                                                    }
+                                                    min={0}
+                                                />
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer mt-6">
                                                 <input
                                                     type="checkbox"
-                                                    checked={testcase.includeInScoring}
+                                                    checked={!tc.isHidden}
                                                     onChange={(e) =>
-                                                        updateTestcase(testcase.id, {
-                                                            includeInScoring: e.target.checked,
-                                                        })
+                                                        handleUpdateTestcase(
+                                                            index,
+                                                            "isHidden",
+                                                            !e.target.checked
+                                                        )
                                                     }
-                                                    className="w-4 h-4 rounded text-(--primary-600)"
+                                                    className="w-4 h-4 text-primary rounded"
                                                 />
-                                                <span className="text-sm text-(--text-primary)">
-                                                    Include in scoring
+                                                <span className="text-sm text-(--text-secondary)">
+                                                    Visible to students
                                                 </span>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </CardBody>
-                </Card>
-
-                {/* Actions */}
-                <div className="flex justify-end gap-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => onNavigate("instructor-dashboard")}
-                    >
-                        Cancel
-                    </Button>
-                    <Button type="submit">Create Problem</Button>
+                            ))}
+                        </CardBody>
+                    </Card>
                 </div>
-            </form>
+
+                {/* Right Column - Basic Info (Sticky) */}
+                <div className="space-y-6">
+                    <Card className="sticky top-6">
+                        <CardHeader>
+                            <h3 className="text-lg font-semibold text-(--text-primary)">
+                                Basic Information
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="space-y-4">
+                            <Input
+                                label="Problem Title"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="e.g., Two Sum"
+                            />
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-sm font-medium text-(--text-secondary) block mb-1">
+                                        Difficulty
+                                    </label>
+                                    <select
+                                        className="w-full px-3 py-2 bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
+                                        value={difficulty}
+                                        onChange={(e) => setDifficulty(e.target.value as any)}
+                                    >
+                                        <option value="EASY">Easy</option>
+                                        <option value="MEDIUM">Medium</option>
+                                        <option value="HARD">Hard</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-center mt-6">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={isPublic}
+                                            onChange={(e) => setIsPublic(e.target.checked)}
+                                            className="w-4 h-4 text-primary rounded"
+                                        />
+                                        <span className="text-sm text-(--text-secondary)">
+                                            Public
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input
+                                    label="Time Limit (s)"
+                                    type="number"
+                                    value={timeLimit}
+                                    onChange={(e) => setTimeLimit(parseFloat(e.target.value))}
+                                    step={0.1}
+                                    min={0.1}
+                                />
+                                <Input
+                                    label="Memory Limit (MB)"
+                                    type="number"
+                                    value={memoryLimit}
+                                    onChange={(e) => setMemoryLimit(parseInt(e.target.value))}
+                                    min={1}
+                                />
+                            </div>
+
+                            <Input
+                                label="Max Score"
+                                type="number"
+                                value={maxScore}
+                                onChange={(e) => setMaxScore(parseFloat(e.target.value))}
+                                min={0}
+                            />
+
+                            <div className="pt-4 border-t border-(--border-color)">
+                                <div className="flex gap-3">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={() => onNavigate("instructor-dashboard")}
+                                        disabled={isSubmitting}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        className="flex-1"
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting && (
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        )}
+                                        {isEditMode ? "Save Changes" : "Create Problem"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 }

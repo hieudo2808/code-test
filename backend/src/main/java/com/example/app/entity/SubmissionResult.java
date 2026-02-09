@@ -17,6 +17,7 @@ import java.util.UUID;
 public class SubmissionResult {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "submissionResultId")
     private UUID submissionResultId;
 
@@ -46,11 +47,4 @@ public class SubmissionResult {
     @Enumerated(EnumType.STRING)
     @Column(name = "verdict", length = 20)
     private Verdict verdict;
-
-    @PrePersist
-    public void prePersist() {
-        if (submissionResultId == null) {
-            submissionResultId = UUID.randomUUID();
-        }
-    }
 }

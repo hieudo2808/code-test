@@ -90,6 +90,10 @@ export const router = createBrowserRouter([
                 element: <CreateProblemPage />,
             },
             {
+                path: "problems/:id/edit",
+                element: <CreateProblemPage />,
+            },
+            {
                 path: "contests/new",
                 element: <CreateContestPage />,
             },

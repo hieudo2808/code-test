@@ -84,6 +84,7 @@ public class S3StorageService implements StorageService {
                 .bucket(bucketName)
                 .key(path)
                 .contentType("text/plain")
+                .serverSideEncryption(ServerSideEncryption.AES256)
                 .build();
 
         s3Client.putObject(request, RequestBody.fromInputStream(data, contentLength));

@@ -15,8 +15,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Notification {
-
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "notificationId")
     private UUID notificationId;
 
@@ -29,11 +29,4 @@ public class Notification {
     @CreationTimestamp
     @Column(name = "createdAt")
     private OffsetDateTime createdAt;
-
-    @PrePersist
-    public void prePersist() {
-        if (notificationId == null) {
-            notificationId = UUID.randomUUID();
-        }
-    }
 }

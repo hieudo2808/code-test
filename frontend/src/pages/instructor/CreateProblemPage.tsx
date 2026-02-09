@@ -1,16 +1,17 @@
-import { Navigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { CreateProblem as CreateProblemComponent } from "~/features/instructor/components/CreateProblem";
 
 export function CreateProblemPage() {
+    const navigate = useNavigate();
+    const { id } = useParams();
+
     const handleNavigate = (page: string) => {
-        switch (page) {
-            case "instructor-dashboard":
-                <Navigate to="/instructor" />;
-                break;
-            default:
-                <Navigate to="/instructor" />;
+        if (page === "instructor-dashboard") {
+            navigate("/instructor");
+        } else {
+            navigate("/instructor");
         }
     };
 
-    return <CreateProblemComponent onNavigate={handleNavigate} />;
+    return <CreateProblemComponent onNavigate={handleNavigate} problemId={id} />;
 }

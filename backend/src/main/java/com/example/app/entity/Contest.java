@@ -19,8 +19,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Contest {
-
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "contestId")
     private UUID contestId;
 
@@ -56,13 +56,6 @@ public class Contest {
     @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ContestParticipant> participants = new ArrayList<>();
-
-    @PrePersist
-    public void prePersist() {
-        if (contestId == null) {
-            contestId = UUID.randomUUID();
-        }
-    }
 
     /**
      * Compute contest state from timestamps.

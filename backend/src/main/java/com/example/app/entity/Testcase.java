@@ -15,9 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Testcase {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "testcaseId")
     UUID testcaseId;
 

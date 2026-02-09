@@ -8,7 +8,7 @@ import { problemService, ProblemListItem } from "~/services/problemService";
 import { contestService, Contest } from "~/services/contestService";
 
 interface InstructorDashboardProps {
-    onNavigate: (page: string) => void;
+    onNavigate: (page: string, id?: string) => void;
 }
 
 interface MyProblem {
@@ -258,7 +258,13 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center justify-end gap-2">
-                                            <Button size="sm" variant="ghost">
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                    onNavigate("edit-problem", problem.id)
+                                                }
+                                            >
                                                 <Edit className="w-4 h-4" />
                                             </Button>
                                             <Button

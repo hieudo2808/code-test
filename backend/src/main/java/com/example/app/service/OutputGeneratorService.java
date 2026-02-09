@@ -54,7 +54,7 @@ public class OutputGeneratorService {
                         .language_id(problem.getSolutionLanguageId())
                         .source_code(problem.getSolutionCode())
                         .stdin(input)
-                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() / 1000.0 : 10.0)
+                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 10.0)
                         .memory_limit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
                         .build();
 
