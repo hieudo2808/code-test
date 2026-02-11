@@ -1,16 +1,30 @@
 package com.example.app.dto.judge0;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 
 @Data
 @Builder
 public class Judge0Request {
-    private Integer language_id;
-    private String source_code;
+    @JsonProperty("language_id")
+    private Integer languageId;
+
+    @JsonProperty("source_code")
+    private String sourceCode;
+
+    @JsonProperty("stdin")
     private String stdin;
-    private String expected_output;
-    private Double cpu_time_limit;
-    private Integer memory_limit;
-    private String callback_url;
+
+    @JsonProperty("expected_output")
+    private String expectedOutput;
+
+    @JsonProperty("cpu_time_limit")
+    private Double cpuTimeLimit;
+
+    @JsonProperty("memory_limit")
+    private Integer memoryLimit;
+
+    @JsonProperty("callback_url")
+    private String callbackUrl;
 }

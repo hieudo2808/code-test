@@ -1,14 +1,16 @@
-import { Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { UserManagement as UserManagementComponent } from "~/features/admin/components/UserManagement";
 
 export function UserManagementPage() {
+    const navigate = useNavigate();
+
     const handleNavigate = (page: string) => {
         switch (page) {
             case "admin-dashboard":
-                <Navigate to="/admin" />;
+                navigate("/admin");
                 break;
             default:
-                <Navigate to="/admin" />;
+                navigate("/admin");
         }
     };
 

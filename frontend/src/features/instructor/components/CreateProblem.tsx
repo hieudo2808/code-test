@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input, TextArea } from "~/components/ui/input";
@@ -30,6 +30,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
     const isEditMode = !!problemId;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
 
     // Basic Info
     const [title, setTitle] = useState("");
@@ -130,7 +131,8 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
 
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (isSubmitting) return;
+        if (isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
         setIsSubmitting(true);
         try {
             // 1. Create/Update Problem
@@ -238,6 +240,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
         } catch (error) {
             console.error("Failed to save problem:", error);
             alert("Failed to save problem. Check console for details.");
+            isSubmittingRef.current = false;
         } finally {
             setIsSubmitting(false);
         }

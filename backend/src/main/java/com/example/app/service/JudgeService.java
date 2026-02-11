@@ -22,13 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class JudgeService {
-
     private final Judge0Client judge0Client;
     private final JudgeRateLimiter rateLimiter;
     private final StorageService storageService;
@@ -37,10 +37,15 @@ public class JudgeService {
     private final TestcaseRepository testcaseRepository;
 
     @Async("judgeExecutor")
-    public void judgeExact(Submission submission) {
+    @Transactional
+    public void judgeExact(Submission detached) {
         try {
             rateLimiter.acquire();
-            
+
+            // Re-fetch from DB to get a managed entity (detached entity from @Async loses persistence context)
+            Submission submission = submissionRepository.findById(detached.getSubmissionId())
+                    .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+
             submission.setSubmissionStatus(SubmissionStatus.COMPILING);
             submissionRepository.save(submission);
 
@@ -52,11 +57,11 @@ public class JudgeService {
                 String input = readTestcaseInput(tc.getInputPath());
 
                 Judge0Request req = Judge0Request.builder()
-                        .language_id(submission.getLanguageId())
-                        .source_code(submission.getSourceCode())
+                        .languageId(submission.getLanguageId())
+                        .sourceCode(submission.getSourceCode())
                         .stdin(input)
-                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
-                        .memory_limit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
+                        .cpuTimeLimit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
+                        .memoryLimit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
                         .build();
 
                 String token = judge0Client.submit(req);
@@ -74,19 +79,27 @@ public class JudgeService {
             submissionRepository.save(submission);
 
         } catch (Exception e) {
-            log.error("Judge exact failed for submission: {}", submission.getSubmissionId(), e);
-            submission.setSubmissionStatus(SubmissionStatus.ERROR);
-            submissionRepository.save(submission);
+            log.error("Judge exact failed for submission: {}", detached.getSubmissionId(), e);
+            // Re-fetch again to safely update status
+            submissionRepository.findById(detached.getSubmissionId()).ifPresent(s -> {
+                s.setSubmissionStatus(SubmissionStatus.ERROR);
+                submissionRepository.save(s);
+            });
         } finally {
             rateLimiter.release();
         }
     }
 
     @Async("judgeExecutor")
-    public void judgeHeuristic(Submission submission) {
+    @Transactional
+    public void judgeHeuristic(Submission detached) {
         try {
             rateLimiter.acquire();
-            
+
+            // Re-fetch from DB to get a managed entity
+            Submission submission = submissionRepository.findById(detached.getSubmissionId())
+                    .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+
             submission.setSubmissionStatus(SubmissionStatus.COMPILING);
             submissionRepository.save(submission);
 
@@ -109,11 +122,11 @@ public class JudgeService {
                 String input = readTestcaseInput(tc.getInputPath());
                 
                 Judge0Request userReq = Judge0Request.builder()
-                        .language_id(submission.getLanguageId())
-                        .source_code(submission.getSourceCode())
+                        .languageId(submission.getLanguageId())
+                        .sourceCode(submission.getSourceCode())
                         .stdin(input)
-                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
-                        .memory_limit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
+                        .cpuTimeLimit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
+                        .memoryLimit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
                         .build();
 
                 Judge0Response userResult = judge0Client.submitSync(userReq, 30);
@@ -128,7 +141,7 @@ public class JudgeService {
                             .score(0.0)
                             .timeMs(userResult.getTime() != null ? userResult.getTime() * 1000 : null)
                             .memoryKb(userResult.getMemory() != null ? userResult.getMemory().doubleValue() : null)
-                            .errorMessage(truncate(userResult.getStderr(), 500))
+                            .errorMessage(truncate(userResult.getStderr()))
                             .build();
                     resultRepository.save(result);
                     continue;
@@ -141,11 +154,11 @@ public class JudgeService {
                 String scorerInput = input + "\n---SEPARATOR---\n" + userOutput + "\n---SEPARATOR---\n" + expectedOutput;
                 
                 Judge0Request scorerReq = Judge0Request.builder()
-                        .language_id(problem.getScorerLanguageId())
-                        .source_code(problem.getScorerCode())
+                        .languageId(problem.getScorerLanguageId())
+                        .sourceCode(problem.getScorerCode())
                         .stdin(scorerInput)
-                        .cpu_time_limit(10.0) // Scorer gets more time
-                        .memory_limit(256000)
+                        .cpuTimeLimit(10.0) // Scorer gets more time
+                        .memoryLimit(256000)
                         .build();
 
                 Judge0Response scorerResult = judge0Client.submitSync(scorerReq, 30);
@@ -169,8 +182,6 @@ public class JudgeService {
                         verdict = Verdict.ACCEPTED;
                     } else if (score > 0) {
                         verdict = Verdict.PARTIAL;
-                    } else {
-                        verdict = Verdict.FAILED;
                     }
                 }
 
@@ -191,18 +202,22 @@ public class JudgeService {
             aggregateIfComplete(submission.getSubmissionId());
 
         } catch (Exception e) {
-            log.error("Judge heuristic failed for submission: {}", submission.getSubmissionId(), e);
-            submission.setSubmissionStatus(SubmissionStatus.ERROR);
-            submissionRepository.save(submission);
+            log.error("Judge heuristic failed for submission: {}", detached.getSubmissionId(), e);
+            submissionRepository.findById(detached.getSubmissionId()).ifPresent(s -> {
+                s.setSubmissionStatus(SubmissionStatus.ERROR);
+                submissionRepository.save(s);
+            });
         } finally {
             rateLimiter.release();
         }
     }
 
-    public void markForManualReview(Submission submission) {
-        submission.setSubmissionStatus(SubmissionStatus.NEED_REVIEW);
-        submissionRepository.save(submission);
-        log.info("Marked submission {} for manual review", submission.getSubmissionId());
+    public void markForManualReview(Submission detached) {
+        submissionRepository.findById(detached.getSubmissionId()).ifPresent(submission -> {
+            submission.setSubmissionStatus(SubmissionStatus.NEED_REVIEW);
+            submissionRepository.save(submission);
+            log.info("Marked submission {} for manual review", submission.getSubmissionId());
+        });
     }
 
     @Transactional
@@ -224,7 +239,7 @@ public class JudgeService {
             String errorMsg = payload.getCompile_output();
             if (errorMsg == null) errorMsg = payload.getStderr();
             if (errorMsg == null) errorMsg = payload.getMessage();
-            result.setErrorMessage(truncate(errorMsg, 500));
+            result.setErrorMessage(truncate(errorMsg));
         }
 
         // Set score based on verdict
@@ -258,7 +273,7 @@ public class JudgeService {
         // Determine worst verdict (highest priority = worst)
         Verdict worstVerdict = results.stream()
                 .map(SubmissionResult::getVerdict)
-                .filter(v -> v != null)
+                .filter(Objects::nonNull)
                 .max(Comparator.comparingInt(this::verdictPriority))
                 .orElse(Verdict.ACCEPTED);
 
@@ -327,8 +342,8 @@ public class JudgeService {
         }
     }
 
-    private String truncate(String s, int maxLen) {
+    private String truncate(String s) {
         if (s == null) return null;
-        return s.length() > maxLen ? s.substring(0, maxLen) : s;
+        return s.length() > 500 ? s.substring(0, 500) : s;
     }
 }

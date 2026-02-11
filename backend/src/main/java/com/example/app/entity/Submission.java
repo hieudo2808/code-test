@@ -70,7 +70,7 @@ public class Submission {
     private String judgeVersion;
 
     @CreationTimestamp
-    @Column(name = "createAt", nullable = false)
+    @Column(name = "createAt", nullable = false, updatable = false)
     private OffsetDateTime createAt;
 
     @UpdateTimestamp

@@ -8,7 +8,6 @@ import java.util.UUID;
 
 @Data
 public class SubmitCodeRequest {
-
     @NotNull(message = "Problem ID is required")
     private UUID problemId;
 

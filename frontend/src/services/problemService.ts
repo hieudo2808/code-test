@@ -103,6 +103,10 @@ export const problemService = {
     async deleteTestcase(testcaseId: string): Promise<void> {
         await api.delete(`/testcases/${testcaseId}`);
     },
+
+    async deleteProblem(problemId: string): Promise<void> {
+        await api.delete(`/problems/${problemId}`);
+    },
 };
 
 export interface CreateProblemRequest {

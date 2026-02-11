@@ -6,6 +6,8 @@ import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.concurrent.Executor;
 
@@ -15,8 +17,12 @@ import java.util.concurrent.Executor;
 public class AsyncConfig {
 
     @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
+    public RestTemplate restTemplate(ObjectMapper objectMapper) {
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.getMessageConverters().stream()
+                .filter(c -> c instanceof MappingJackson2HttpMessageConverter)
+                .forEach(c -> ((MappingJackson2HttpMessageConverter) c).setObjectMapper(objectMapper));
+        return restTemplate;
     }
 
     @Bean(name = "judgeExecutor")

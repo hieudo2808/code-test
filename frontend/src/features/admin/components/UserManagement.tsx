@@ -341,9 +341,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                             <Button variant="outline" onClick={() => setDeleteUserModal(null)}>
                                 Cancel
                             </Button>
-                            <Button variant="danger" onClick={handleDeleteUser}>
-                                Delete User
-                            </Button>
+                            <Button onClick={handleDeleteUser}>Delete User</Button>
                         </>
                     }
                 >

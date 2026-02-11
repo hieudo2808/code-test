@@ -51,11 +51,11 @@ public class OutputGeneratorService {
 
                 // Run solution code
                 Judge0Request request = Judge0Request.builder()
-                        .language_id(problem.getSolutionLanguageId())
-                        .source_code(problem.getSolutionCode())
+                        .languageId(problem.getSolutionLanguageId())
+                        .sourceCode(problem.getSolutionCode())
                         .stdin(input)
-                        .cpu_time_limit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 10.0)
-                        .memory_limit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
+                        .cpuTimeLimit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 10.0)
+                        .memoryLimit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
                         .build();
 
                 Judge0Response response = judge0Client.submitSync(request, 60);

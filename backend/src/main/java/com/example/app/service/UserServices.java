@@ -5,11 +5,13 @@ import com.example.app.dto.request.user.ChangePasswordRequest;
 import com.example.app.dto.request.user.CreateUserRequest;
 import com.example.app.dto.request.user.UserProfileUpdateRequest;
 import com.example.app.dto.response.UserResponse;
+import com.example.app.entity.Roles;
 import com.example.app.entity.Users;
 import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
 import com.example.app.helpers.PasswordGenerator;
 import com.example.app.mapper.UserMapper;
+import com.example.app.repository.RoleRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.security.SecurityHelper;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class UserServices {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final SecurityHelper securityHelper;
@@ -42,6 +45,9 @@ public class UserServices {
         }
 
         Users user = userMapper.toUser(request);
+        Roles role = roleRepository.findByRoleName(request.getRoleName())
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+        user.setRole(role);
         
         String plainPassword = PasswordGenerator.generate(8);
         user.setHashPassword(passwordEncoder.encode(plainPassword));

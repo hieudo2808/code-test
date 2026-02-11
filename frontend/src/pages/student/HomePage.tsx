@@ -13,7 +13,7 @@ export function HomePage() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
-    const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [statusFilter, setStatusFilter] = useState<string>("RUNNING");
 
     // Data states
     const [contests, setContests] = useState<Contest[]>([]);

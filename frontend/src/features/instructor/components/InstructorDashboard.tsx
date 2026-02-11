@@ -79,8 +79,20 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
         fetchData();
     }, []);
 
-    const handleDelete = () => {
-        // Handle delete logic
+    const handleDelete = async () => {
+        if (!deleteModal) return;
+        try {
+            if (deleteModal.type === "problem") {
+                await problemService.deleteProblem(deleteModal.id);
+                setMyProblems(myProblems.filter((p) => p.id !== deleteModal.id));
+            } else {
+                await contestService.deleteContest(deleteModal.id);
+                setMyContests(myContests.filter((c) => c.id !== deleteModal.id));
+            }
+        } catch (error) {
+            console.error("Failed to delete:", error);
+            alert("Failed to delete. Please try again.");
+        }
         setDeleteModal(null);
     };
 
@@ -361,7 +373,13 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center justify-end gap-2">
-                                            <Button size="sm" variant="ghost">
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                    onNavigate("edit-contest", contest.id)
+                                                }
+                                            >
                                                 <Edit className="w-4 h-4" />
                                             </Button>
                                             <Button

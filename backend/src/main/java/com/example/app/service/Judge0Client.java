@@ -21,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 public class Judge0Client {
 
     private final RestTemplate restTemplate;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Value("${judge0.base-url}")
     private String baseUrl;
@@ -37,13 +38,22 @@ public class Judge0Client {
             backoff = @Backoff(delay = 2000, multiplier = 2)
     )
     public String submit(Judge0Request request) {
-        request.setCallback_url(callbackUrl);
+        request.setCallbackUrl(callbackUrl);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Auth-Token", authToken);
 
-        HttpEntity<Judge0Request> entity = new HttpEntity<>(request, headers);
+        String jsonBody;
+        try {
+            jsonBody = objectMapper.writeValueAsString(request);
+            log.info("Sending to Judge0: {}", jsonBody);
+        } catch (Exception e) {
+            log.error("Failed to serialize request", e);
+            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
+        }
+
+        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
 
         try {
             ResponseEntity<Judge0Response> response = restTemplate.exchange(
@@ -73,13 +83,20 @@ public class Judge0Client {
      */
     public Judge0Response submitSync(Judge0Request request, int maxWaitSeconds) {
         // Don't use callback for sync submission
-        request.setCallback_url(null);
+        request.setCallbackUrl(null);
         
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Auth-Token", authToken);
 
-        HttpEntity<Judge0Request> entity = new HttpEntity<>(request, headers);
+        String jsonBody;
+        try {
+            jsonBody = objectMapper.writeValueAsString(request);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
+        }
+
+        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
 
         // Submit with wait=true parameter
         ResponseEntity<Judge0Response> response = restTemplate.exchange(

@@ -143,11 +143,13 @@ export function ProblemDetailPage() {
                     </CardHeader>
                     <CardBody>
                         <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-                            {problem.description?.split("\n").map((para, i) => (
-                                <p key={i} className="mb-3 leading-relaxed">
-                                    {para}
-                                </p>
-                            ))}
+                            {(problem.problemDescription || problem.description)
+                                ?.split("\n")
+                                .map((para, i) => (
+                                    <p key={i} className="mb-3 leading-relaxed">
+                                        {para}
+                                    </p>
+                                ))}
                         </div>
                     </CardBody>
                 </Card>

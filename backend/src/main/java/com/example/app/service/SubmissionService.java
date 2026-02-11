@@ -25,6 +25,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.UUID;
@@ -157,11 +159,20 @@ public class SubmissionService {
     }
 
     private void triggerJudge(Submission submission, EvaluationType evalType) {
-        switch (evalType) {
-            case EXACT -> judgeService.judgeExact(submission);
-            case HEURISTIC -> judgeService.judgeHeuristic(submission);
-            case MANUAL -> judgeService.markForManualReview(submission);
-        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    switch (evalType) {
+                        case EXACT -> judgeService.judgeExact(submission);
+                        case HEURISTIC -> judgeService.judgeHeuristic(submission);
+                        case MANUAL -> judgeService.markForManualReview(submission);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to trigger judge after commit", e);
+                }
+            }
+        });
     }
 
     private boolean isSubmissionOwner(Submission submission) {

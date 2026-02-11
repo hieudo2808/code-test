@@ -64,4 +64,8 @@ export const contestService = {
         const response = await api.get(`/contests/${contestId}/problems`);
         return response.data.result;
     },
+
+    async deleteContest(contestId: string): Promise<void> {
+        await api.delete(`/contests/${contestId}`);
+    },
 };

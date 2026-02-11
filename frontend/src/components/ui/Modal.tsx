@@ -1,6 +1,5 @@
 import React from "react";
 import { X } from "lucide-react";
-import { Button } from "./Button";
 
 interface ModalProps {
     isOpen: boolean;
@@ -16,7 +15,7 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-            <div className="relative bg-(--bg-primary) rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden mx-4">
+            <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden mx-4">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-(--border-color)">
                     <h3>{title}</h3>
                     <button
