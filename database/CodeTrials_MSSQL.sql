@@ -163,7 +163,7 @@ CREATE TABLE UserNotifications (
 Create table Contests (
 	contestId UNIQUEIDENTIFIER PRIMARY KEY NOT NULL,
 	contestName NVARCHAR(200) NOT NULL,
-	contestOwner UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Users(userId) ON DELETE SET NULL,
+	contestOwner UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Users(userId) ON DELETE SET NULL, --
 	startTime DATETIMEOFFSET,
 	endTime DATETIMEOFFSET,
 	isPublic BIT DEFAULT 1,
@@ -177,14 +177,22 @@ Create table Problems (
 	title NVARCHAR(200),
 	slug VARCHAR(250) UNIQUE,
 	problemDescription NVARCHAR(MAX),
+
 	evaluationType VARCHAR(10) NOT NULL CHECK (evaluationType IN ('EXACT', 'HEURISTIC', 'MANUAL')),
 	timeLimit FLOAT(53) DEFAULT 0, --second
 	memoryLimit INT DEFAULT 0, --kB
 	difficulty VARCHAR(6) CHECK (difficulty IN ('EASY', 'MEDIUM', 'HARD')),
+
 	sampleInput NVARCHAR(MAX),
 	sampleOutput NVARCHAR(MAX),
+	solutionCode NVARCHAR(MAX),
+	solutionLanguageId INT,
+	scorerCode NVARCHAR(MAX),
+	scorerLanguageId INT,
+
 	isPublic BIT DEFAULT 1,
     maxScore FLOAT DEFAULT 100,
+
 	createAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
     updateAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
 )
@@ -240,10 +248,11 @@ Create table Submissions (
 -- Results
 Create table SubmissionResults (
 	submissionResultId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
-	judge0Token VARCHAR(50),  -- Judge0 submission token
 	submissionId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES Submissions(submissionId) ON DELETE CASCADE,
 	testCaseId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES Testcases(testCaseId) ON DELETE NO ACTION,
 	UNIQUE(submissionId, testCaseId),
+
+	judge0Token VARCHAR(50),
 
     errorMessage NVARCHAR(500),
 	timeMs FLOAT(53),

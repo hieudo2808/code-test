@@ -6,3 +6,5 @@
 /backend/node_modules
 /backend/build
 /backend/package-lock.json
+
+/judge/judge0.conf
