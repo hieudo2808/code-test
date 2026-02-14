@@ -46,7 +46,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                 setError(null);
 
                 // Fetch problems
-                const problemsResponse = await problemService.getProblems(0, 10);
+                const problemsResponse = await problemService.getMyProblems(0, 10);
                 const problemsData: MyProblem[] = problemsResponse.content.map(
                     (p: ProblemListItem) => ({
                         id: p.problemId,
@@ -59,7 +59,7 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                 setMyProblems(problemsData);
 
                 // Fetch contests
-                const contestsResponse = await contestService.getContests(0, 10);
+                const contestsResponse = await contestService.getMyContests(0, 10);
                 const contestsData: MyContest[] = contestsResponse.content.map((c: Contest) => ({
                     id: c.contestId,
                     name: c.contestName,

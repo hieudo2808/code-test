@@ -84,4 +84,31 @@ export const submissionService = {
         );
         return response.data.result;
     },
+
+    async searchContestSubmissions(
+        contestId: string,
+        filters: { problemId?: string; submitterId?: string; verdict?: string },
+        page = 0,
+        size = 20
+    ) {
+        const params = new URLSearchParams({ page: String(page), size: String(size) });
+        if (filters.problemId) params.append("problemId", filters.problemId);
+        if (filters.submitterId) params.append("submitterId", filters.submitterId);
+        if (filters.verdict) params.append("verdict", filters.verdict);
+        const response = await api.get(`/submissions/contest/${contestId}?${params.toString()}`);
+        return response.data.result;
+    },
+
+    async searchProblemSubmissions(
+        problemId: string,
+        filters: { submitterId?: string; verdict?: string },
+        page = 0,
+        size = 20
+    ) {
+        const params = new URLSearchParams({ page: String(page), size: String(size) });
+        if (filters.submitterId) params.append("submitterId", filters.submitterId);
+        if (filters.verdict) params.append("verdict", filters.verdict);
+        const response = await api.get(`/submissions/problem/${problemId}/search?${params.toString()}`);
+        return response.data.result;
+    },
 };

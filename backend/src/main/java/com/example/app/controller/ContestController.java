@@ -71,6 +71,14 @@ public class ContestController {
                 .build();
     }
 
+    @GetMapping("/my")
+    public ApiResponse<Page<ContestResponse>> listMyContests(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ApiResponse.<Page<ContestResponse>>builder()
+                .result(contestService.listMyContests(pageable))
+                .build();
+    }
+
     // ==================== PROBLEMS ====================
 
     @PostMapping("/{contestId}/problems")
@@ -107,6 +115,27 @@ public class ContestController {
         contestService.joinContest(contestId);
         return ApiResponse.<Void>builder()
                 .message("Successfully joined contest")
+                .build();
+    }
+
+    @PostMapping("/{contestId}/participants")
+    public ApiResponse<ContestParticipantResponse> addParticipant(
+            @PathVariable UUID contestId,
+            @RequestBody java.util.Map<String, String> request) {
+        String email = request.get("email");
+        return ApiResponse.<ContestParticipantResponse>builder()
+                .message("Participant added successfully")
+                .result(contestService.addParticipant(contestId, email))
+                .build();
+    }
+
+    @DeleteMapping("/{contestId}/participants/{userId}")
+    public ApiResponse<Void> removeParticipant(
+            @PathVariable UUID contestId,
+            @PathVariable UUID userId) {
+        contestService.removeParticipant(contestId, userId);
+        return ApiResponse.<Void>builder()
+                .message("Participant removed successfully")
                 .build();
     }
 

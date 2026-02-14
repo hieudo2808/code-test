@@ -7,7 +7,8 @@ import {
     LayoutDashboard,
     Users,
     Settings,
-    PlusCircle,
+    ShieldAlert,
+    Bell,
 } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 import { UserRole } from "~/services/authService";
@@ -24,13 +25,15 @@ export function Sidebar() {
 
     const instructorMenuItems = [
         { path: "/instructor", icon: LayoutDashboard, label: "Dashboard" },
-        { path: "/instructor/problems/new", icon: PlusCircle, label: "Tạo bài tập" },
-        { path: "/instructor/contests/new", icon: Trophy, label: "Tạo cuộc thi" },
+        { path: "/instructor/problems", icon: FileText, label: "Quản lý bài tập" },
+        { path: "/instructor/contests", icon: Trophy, label: "Quản lý cuộc thi" },
+        { path: "/instructor/plagiarism", icon: ShieldAlert, label: "Kiểm tra đạo văn" },
     ];
 
     const adminMenuItems = [
         { path: "/admin", icon: LayoutDashboard, label: "Dashboard" },
         { path: "/admin/users", icon: Users, label: "Quản lý người dùng" },
+        { path: "/admin/notifications", icon: Bell, label: "Gửi thông báo" },
         { path: "/admin/settings", icon: Settings, label: "Cài đặt" },
     ];
 

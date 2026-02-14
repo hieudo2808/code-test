@@ -21,6 +21,15 @@ public interface ProblemRepository extends JpaRepository<Problem, UUID> {
     // For students - only public problems
     Page<Problem> findByIsPublicTrue(Pageable pageable);
     
+    // Instructor's own problems
+    Page<Problem> findByProblemCreatorUserId(UUID creatorId, Pageable pageable);
+
+    @Query("SELECT p FROM Problem p WHERE p.problemCreator.userId = :creatorId " +
+           "AND LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Page<Problem> searchByCreator(@Param("creatorId") UUID creatorId,
+                                  @Param("keyword") String keyword,
+                                  Pageable pageable);
+
     // Check if problem has submissions (for delete validation)
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END " +
            "FROM Submission s WHERE s.problem.problemId = :problemId")

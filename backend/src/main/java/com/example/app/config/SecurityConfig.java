@@ -46,7 +46,8 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/api/checkstatus",
-            "/api/internal/judge/callback"
+            "/api/internal/judge/callback",
+            "/ws/**"
     };
 
     @Value("${app.cors.allowed-origins}")

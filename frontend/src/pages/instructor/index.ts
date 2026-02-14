@@ -1,3 +1,10 @@
 export { InstructorDashboardPage } from "./DashboardPage";
 export { CreateProblemPage } from "./CreateProblemPage";
 export { CreateContestPage } from "./CreateContestPage";
+export { PlagiarismPage } from "./PlagiarismPage";
+export { PlagiarismResultsPage } from "./PlagiarismResultsPage";
+export { PlagiarismDetailPage } from "./PlagiarismDetailPage";
+export { MyProblemsPage } from "./MyProblemsPage";
+export { MyContestsPage } from "./MyContestsPage";
+export { ContestManagePage } from "./ContestManagePage";
+export { ProblemSubmissionsPage } from "./ProblemSubmissionsPage";

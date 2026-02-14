@@ -98,6 +98,17 @@ public class ProblemService {
         }
     }
 
+    @PreAuthorize("hasAuthority('PROBLEM_CREATE')")
+    public Page<ProblemSummaryResponse> getMyProblems(String keyword, Pageable pageable) {
+        UUID currentUserId = securityHelper.getCurrentUserId();
+        if (keyword != null && !keyword.isBlank()) {
+            return problemRepository.searchByCreator(currentUserId, keyword.trim(), pageable)
+                    .map(problemMapper::toSummary);
+        }
+        return problemRepository.findByProblemCreatorUserId(currentUserId, pageable)
+                .map(problemMapper::toSummary);
+    }
+
     // ==================== UPDATE ====================
 
     @Transactional

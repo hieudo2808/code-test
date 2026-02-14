@@ -70,6 +70,33 @@ public class SubmissionController {
                 .build();
     }
 
+    @GetMapping("/contest/{contestId}")
+    public ApiResponse<Page<SubmissionResponse>> searchContestSubmissions(
+            @PathVariable UUID contestId,
+            @RequestParam(required = false) UUID problemId,
+            @RequestParam(required = false) UUID submitterId,
+            @RequestParam(required = false) String verdict,
+            @PageableDefault(size = 20, sort = "createAt",
+                    direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return ApiResponse.<Page<SubmissionResponse>>builder()
+                .result(submissionService.searchContestSubmissions(
+                        contestId, problemId, submitterId, verdict, pageable))
+                .build();
+    }
+
+    @GetMapping("/problem/{problemId}/search")
+    public ApiResponse<Page<SubmissionResponse>> searchProblemSubmissions(
+            @PathVariable UUID problemId,
+            @RequestParam(required = false) UUID submitterId,
+            @RequestParam(required = false) String verdict,
+            @PageableDefault(size = 20, sort = "createAt",
+                    direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return ApiResponse.<Page<SubmissionResponse>>builder()
+                .result(submissionService.searchProblemSubmissions(
+                        problemId, submitterId, verdict, pageable))
+                .build();
+    }
+
     @PostMapping("/{submissionId}/rejudge")
     public ApiResponse<SubmissionResponse> rejudge(@PathVariable UUID submissionId) {
         return ApiResponse.<SubmissionResponse>builder()

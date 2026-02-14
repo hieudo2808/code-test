@@ -39,6 +39,15 @@ public class ProblemController {
                 .build();
     }
 
+    @GetMapping("/my")
+    public ApiResponse<Page<ProblemSummaryResponse>> getMyProblems(
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ApiResponse.<Page<ProblemSummaryResponse>>builder()
+                .result(problemService.getMyProblems(keyword, pageable))
+                .build();
+    }
+
     @GetMapping("/slug/{slug}")
     public ApiResponse<ProblemResponse> getProblemBySlug(@PathVariable String slug) {
         return ApiResponse.<ProblemResponse>builder()

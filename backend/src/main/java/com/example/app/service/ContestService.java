@@ -120,6 +120,16 @@ public class ContestService {
                 });
     }
 
+    @PreAuthorize("hasAuthority('CONTEST_CREATE')")
+    public Page<ContestResponse> listMyContests(Pageable pageable) {
+        UUID currentUserId = securityHelper.getCurrentUserId();
+        return contestRepository.findByContestOwnerUserId(currentUserId, pageable)
+                .map(c -> {
+                    boolean isJoined = participantRepository.existsByContestContestIdAndParticipantUserId(c.getContestId(), currentUserId);
+                    return contestMapper.toResponse(c, currentUserId, isJoined);
+                });
+    }
+
     // ==================== PROBLEMS ====================
 
     @Transactional
@@ -210,6 +220,43 @@ public class ContestService {
 
         participantRepository.save(participant);
         log.info("User {} joined contest {}", currentUserId, contestId);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('CONTEST_UPDATE')")
+    public ContestParticipantResponse addParticipant(UUID contestId, String email) {
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONTEST_NOT_FOUND));
+
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (participantRepository.existsByContestContestIdAndParticipantUserId(contestId, user.getUserId())) {
+            throw new AppException(ErrorCode.CONTEST_ALREADY_JOINED);
+        }
+
+        ContestParticipantId cpId = new ContestParticipantId(contestId, user.getUserId());
+        ContestParticipant participant = ContestParticipant.builder()
+                .id(cpId)
+                .contest(contest)
+                .participant(user)
+                .build();
+
+        participantRepository.save(participant);
+        log.info("Added participant {} to contest {} by instructor", user.getUserId(), contestId);
+
+        return contestMapper.toParticipantResponse(participant);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('CONTEST_UPDATE')")
+    public void removeParticipant(UUID contestId, UUID userId) {
+        ContestParticipantId cpId = new ContestParticipantId(contestId, userId);
+        if (!participantRepository.existsById(cpId)) {
+            throw new AppException(ErrorCode.USER_NOT_FOUND);
+        }
+        participantRepository.deleteById(cpId);
+        log.info("Removed participant {} from contest {}", userId, contestId);
     }
 
     @PreAuthorize("hasAuthority('CONTEST_READ')")

@@ -42,6 +42,11 @@ export const contestService = {
         return response.data.result;
     },
 
+    async getMyContests(page = 0, size = 50) {
+        const response = await api.get(`/contests/my?page=${page}&size=${size}`);
+        return response.data.result;
+    },
+
     async getContest(id: string): Promise<Contest> {
         const response = await api.get(`/contests/${id}`);
         return response.data.result;
@@ -67,5 +72,19 @@ export const contestService = {
 
     async deleteContest(contestId: string): Promise<void> {
         await api.delete(`/contests/${contestId}`);
+    },
+
+    async getParticipants(contestId: string) {
+        const response = await api.get(`/contests/${contestId}/participants`);
+        return response.data.result;
+    },
+
+    async addParticipant(contestId: string, email: string) {
+        const response = await api.post(`/contests/${contestId}/participants`, { email });
+        return response.data.result;
+    },
+
+    async removeParticipant(contestId: string, userId: string): Promise<void> {
+        await api.delete(`/contests/${contestId}/participants/${userId}`);
     },
 };

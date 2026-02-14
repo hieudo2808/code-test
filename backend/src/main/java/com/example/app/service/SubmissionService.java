@@ -138,6 +138,33 @@ public class SubmissionService {
                 .map(submissionMapper::toResponse);
     }
 
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
+    public Page<SubmissionResponse> searchContestSubmissions(UUID contestId, UUID problemId,
+                                                             UUID submitterId, String verdict,
+                                                             Pageable pageable) {
+        com.example.app.entity.enums.Verdict v = null;
+        if (verdict != null && !verdict.isBlank()) {
+            try {
+                v = com.example.app.entity.enums.Verdict.valueOf(verdict);
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return submissionRepository.searchContestSubmissions(contestId, problemId, submitterId, v, pageable)
+                .map(submissionMapper::toResponse);
+    }
+
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
+    public Page<SubmissionResponse> searchProblemSubmissions(UUID problemId, UUID submitterId,
+                                                             String verdict, Pageable pageable) {
+        com.example.app.entity.enums.Verdict v = null;
+        if (verdict != null && !verdict.isBlank()) {
+            try {
+                v = com.example.app.entity.enums.Verdict.valueOf(verdict);
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return submissionRepository.searchProblemSubmissions(problemId, submitterId, v, pageable)
+                .map(submissionMapper::toResponse);
+    }
+
     @Transactional
     @PreAuthorize("hasAuthority('SUBMISSION_REJUDGE')")
     public SubmissionResponse rejudge(UUID submissionId) {

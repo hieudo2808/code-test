@@ -23,5 +23,7 @@ public interface ContestRepository extends JpaRepository<Contest, UUID> {
     @Query("SELECT c FROM Contest c WHERE c.endTime > :now ORDER BY c.startTime ASC")
     List<Contest> findUpcomingAndRunning(@Param("now") OffsetDateTime now);
 
+    Page<Contest> findByContestOwnerUserId(UUID ownerId, Pageable pageable);
+
     boolean existsByContestIdAndContestOwnerUserId(UUID contestId, UUID ownerId);
 }
