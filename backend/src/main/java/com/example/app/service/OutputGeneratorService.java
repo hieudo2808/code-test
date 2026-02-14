@@ -24,7 +24,7 @@ import java.util.UUID;
 public class OutputGeneratorService {
 
     private final Judge0Client judge0Client;
-    private final StorageService storageService;
+    private final S3StorageService storageService;
     private final ProblemRepository problemRepository;
     private final TestcaseRepository testcaseRepository;
 

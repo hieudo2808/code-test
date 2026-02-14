@@ -2,6 +2,7 @@ package com.example.app.service;
 
 import com.example.app.dto.request.testcase.CreateTestcaseRequest;
 import com.example.app.dto.request.testcase.UpdateTestcaseRequest;
+import com.example.app.dto.response.TestcaseContentResponse;
 import com.example.app.dto.response.TestcaseResponse;
 import com.example.app.dto.response.TestcaseSummaryResponse;
 import com.example.app.entity.Problem;
@@ -30,7 +31,7 @@ public class TestcaseService {
     private final TestcaseRepository testcaseRepository;
     private final ProblemRepository problemRepository;
     private final TestcaseMapper testcaseMapper;
-    private final StorageService storageService;
+    private final S3StorageService storageService;
     private final SecurityHelper securityHelper;
 
     // ==================== CREATE ====================
@@ -49,13 +50,6 @@ public class TestcaseService {
         // Validate ownership or admin
         if (!canManageProblem(problem)) {
             throw new AppException(ErrorCode.FORBIDDEN);
-        }
-
-        // Validate score doesn't exceed max
-        Double currentTotal = testcaseRepository.sumTestcasePointsByProblemId(problemId);
-        Double newTotal = currentTotal + request.getTestcasePoint();
-        if (newTotal > problem.getMaxScore()) {
-            throw new AppException(ErrorCode.TESTCASE_SCORE_EXCEEDED);
         }
 
         UUID testcaseId = UUID.randomUUID();
@@ -90,6 +84,7 @@ public class TestcaseService {
                 .build();
 
         Testcase saved = testcaseRepository.save(testcase);
+        syncMaxScore(problem);
         log.info("Created testcase: {} for problem: {}", testcaseId, problemId);
 
         return testcaseMapper.toResponse(saved);
@@ -141,13 +136,8 @@ public class TestcaseService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Validate score if changing
+        // Update score if changing
         if (request.getTestcasePoint() != null) {
-            Double currentTotal = testcaseRepository.sumTestcasePointsByProblemId(problem.getProblemId());
-            Double newTotal = currentTotal - testcase.getTestcasePoint() + request.getTestcasePoint();
-            if (newTotal > problem.getMaxScore()) {
-                throw new AppException(ErrorCode.TESTCASE_SCORE_EXCEEDED);
-            }
             testcase.setTestcasePoint(request.getTestcasePoint());
         }
 
@@ -182,9 +172,41 @@ public class TestcaseService {
         }
 
         Testcase saved = testcaseRepository.save(testcase);
+        syncMaxScore(problem);
         log.info("Updated testcase: {}", testcaseId);
 
         return testcaseMapper.toResponse(saved);
+    }
+
+    // ==================== CONTENT ====================
+
+    @PreAuthorize("hasAuthority('TESTCASE_READ_HIDDEN')")
+    public TestcaseContentResponse getTestcaseContent(UUID testcaseId) {
+        Testcase testcase = testcaseRepository.findById(testcaseId)
+                .orElseThrow(() -> new AppException(ErrorCode.TESTCASE_NOT_FOUND));
+
+        if (!canManageProblem(testcase.getProblem())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        String input = readFromS3(testcase.getInputPath());
+        String output = readFromS3(testcase.getOutputPath());
+
+        return TestcaseContentResponse.builder()
+                .testcaseId(testcase.getTestcaseId())
+                .input(input)
+                .output(output)
+                .build();
+    }
+
+    private String readFromS3(String path) {
+        try {
+            byte[] bytes = storageService.getFile(path).readAllBytes();
+            return new String(bytes);
+        } catch (Exception e) {
+            log.warn("Failed to read file from S3: {}", path, e);
+            return "";
+        }
     }
 
     // ==================== DELETE ====================
@@ -205,10 +227,20 @@ public class TestcaseService {
         storageService.delete(testcase.getOutputPath());
 
         testcaseRepository.delete(testcase);
+        syncMaxScore(testcase.getProblem());
         log.info("Deleted testcase: {}", testcaseId);
     }
 
     // ==================== HELPERS ====================
+
+    /**
+     * Auto-sync problem.maxScore = sum of all testcase points.
+     */
+    private void syncMaxScore(Problem problem) {
+        Double total = testcaseRepository.sumTestcasePointsByProblemId(problem.getProblemId());
+        problem.setMaxScore(total != null ? total : 0.0);
+        problemRepository.save(problem);
+    }
 
     private boolean canManageProblem(Problem problem) {
         UUID currentUserId = securityHelper.getCurrentUserId();

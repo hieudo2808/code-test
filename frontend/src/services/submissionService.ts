@@ -17,6 +17,12 @@ export interface SubmissionResult {
     isHidden: boolean;
 }
 
+export interface TestcaseDetail {
+    input: string;
+    expectedOutput: string;
+    actualOutput: string;
+}
+
 export interface Submission {
     submissionId: string;
     problemId: string;
@@ -28,13 +34,13 @@ export interface Submission {
     message?: string;
     score?: number;
     maxScore?: number;
-    timeMs?: number;
-    memoryKb?: number;
     submittedAt: string;
     finishedAt?: string;
     submitterId: string;
     submitterName: string;
     languageId: number;
+    sourceCode?: string;
+    totalTimeMs?: number;
     results?: SubmissionResult[];
 }
 
@@ -54,7 +60,14 @@ export const submissionService = {
         return response.data.result;
     },
 
-    async pollSubmission(id: string, maxAttempts = 30, interval = 1000): Promise<Submission> {
+    async getMySubmissionsByProblem(problemId: string, page = 0, size = 5) {
+        const response = await api.get(
+            `/submissions/me/problem/${problemId}?page=${page}&size=${size}`
+        );
+        return response.data.result;
+    },
+
+    async pollSubmission(id: string, maxAttempts = 240, interval = 500): Promise<Submission> {
         for (let i = 0; i < maxAttempts; i++) {
             const submission = await this.getSubmission(id);
             if (submission.status === "DONE" || submission.status === "ERROR") {
@@ -63,5 +76,12 @@ export const submissionService = {
             await new Promise((resolve) => setTimeout(resolve, interval));
         }
         throw new Error("Submission timeout");
+    },
+
+    async getTestcaseDetail(submissionId: string, testcaseId: string): Promise<TestcaseDetail> {
+        const response = await api.get(
+            `/submissions/${submissionId}/results/${testcaseId}/detail`
+        );
+        return response.data.result;
     },
 };

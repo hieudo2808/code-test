@@ -40,8 +40,6 @@ public class SubmissionMapper {
             builder.verdict(submission.getFinalVerdict())
                     .score(submission.getFinalScore())
                     .maxScore(submission.getProblem().getMaxScore())
-                    .timeMs(submission.getTotalTimeMs())
-                    .memoryKb(submission.getPeakMemoryKb())
                     .finishedAt(submission.getUpdateAt());
         } else {
             // Still processing - show max score only
@@ -53,6 +51,10 @@ public class SubmissionMapper {
 
     public SubmissionResponse toResponseWithResults(Submission submission, List<SubmissionResult> results, boolean showHiddenDetails) {
         SubmissionResponse response = toResponse(submission);
+
+        // Include source code and timing in detail view
+        response.setSourceCode(submission.getSourceCode());
+        response.setTotalTimeMs(submission.getTotalTimeMs());
 
         // Extract message from first CE/RTE result
         if (submission.getSubmissionStatus() == SubmissionStatus.DONE) {
@@ -78,12 +80,12 @@ public class SubmissionMapper {
 
         return SubmissionResultResponse.builder()
                 .testcaseId(result.getTestcase().getTestcaseId())
-                .verdict(showHiddenDetails || !isHidden ? result.getVerdict() : null)
-                .timeMs(showHiddenDetails || !isHidden ? result.getTimeMs() : null)
-                .memoryKb(showHiddenDetails || !isHidden ? result.getMemoryKb() : null)
+                .verdict(result.getVerdict())
+                .timeMs(result.getTimeMs())
+                .memoryKb(result.getMemoryKb())
                 .score(result.getScore())
                 .maxScore(result.getTestcase().getTestcasePoint())
-                .errorMessage(showHiddenDetails ? result.getErrorMessage() : null)
+                .errorMessage(showHiddenDetails || !isHidden ? result.getErrorMessage() : null)
                 .isHidden(isHidden)
                 .build();
     }

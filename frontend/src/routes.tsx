@@ -12,7 +12,7 @@ import { RegisterPage } from "~/pages/auth/RegisterPage";
 import { HomePage } from "~/pages/student/HomePage";
 import { ContestDetailPage } from "~/pages/student/ContestDetailPage";
 import { ProblemDetailPage } from "~/pages/student/ProblemDetailPage";
-import { SubmissionResultPage } from "~/pages/student/SubmissionResultPage";
+import { SubmissionDetailPage } from "~/pages/student/SubmissionDetailPage";
 
 // Instructor Pages
 import { InstructorDashboardPage } from "~/pages/instructor/DashboardPage";
@@ -67,7 +67,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "submissions/:id",
-                element: <SubmissionResultPage />,
+                element: <SubmissionDetailPage />,
             },
         ],
     },

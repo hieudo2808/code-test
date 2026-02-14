@@ -104,6 +104,11 @@ export const problemService = {
         await api.delete(`/testcases/${testcaseId}`);
     },
 
+    async getTestcaseContent(testcaseId: string): Promise<TestcaseContentResponse> {
+        const response = await api.get(`/testcases/${testcaseId}/content`);
+        return response.data.result;
+    },
+
     async deleteProblem(problemId: string): Promise<void> {
         await api.delete(`/problems/${problemId}`);
     },
@@ -157,6 +162,12 @@ export interface TestcaseResponse {
     // We might need raw input/output for editing, but backend only returns paths?
     // Wait, backend returns TestcaseResponse which has paths.
     // Does it return CONTENT? checking TestcaseResponse backend DTO...
+}
+
+export interface TestcaseContentResponse {
+    testcaseId: string;
+    input: string;
+    output: string;
 }
 
 export const LANGUAGE_OPTIONS = [

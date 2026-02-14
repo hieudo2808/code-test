@@ -30,8 +30,6 @@ public class SubmissionResponse {
     private Double maxScore;
     
     // Timing
-    private Double timeMs;                // Khi DONE
-    private Double memoryKb;              // Khi DONE
     private OffsetDateTime submittedAt;
     private OffsetDateTime finishedAt;    // Khi DONE
     
@@ -39,6 +37,10 @@ public class SubmissionResponse {
     private UUID submitterId;
     private String submitterName;
     private Integer languageId;
+    
+    // Detail fields (only in single submission view)
+    private String sourceCode;
+    private Double totalTimeMs;
     
     // Detail results (optional)
     private List<SubmissionResultResponse> results;

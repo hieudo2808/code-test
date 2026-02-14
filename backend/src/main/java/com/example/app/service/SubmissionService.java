@@ -2,6 +2,7 @@ package com.example.app.service;
 
 import com.example.app.dto.request.submission.SubmitCodeRequest;
 import com.example.app.dto.response.SubmissionResponse;
+import com.example.app.dto.response.TestcaseDetailResponse;
 import com.example.app.entity.Contest;
 import com.example.app.entity.Problem;
 import com.example.app.entity.Submission;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,6 +45,7 @@ public class SubmissionService {
     private final ContestRepository contestRepository;
     private final JudgeService judgeService;
     private final ContestService contestService;
+    private final S3StorageService storageService;
     private final SubmissionMapper submissionMapper;
     private final SecurityHelper securityHelper;
 
@@ -116,6 +119,13 @@ public class SubmissionService {
                 .map(submissionMapper::toResponse);
     }
 
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_SELF')")
+    public Page<SubmissionResponse> getMySubmissionsByProblem(UUID problemId, Pageable pageable) {
+        UUID currentUserId = securityHelper.getCurrentUserId();
+        return submissionRepository.findBySubmitterUserIdAndProblemProblemId(currentUserId, problemId, pageable)
+                .map(submissionMapper::toResponse);
+    }
+
     @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
     public Page<SubmissionResponse> getAllSubmissions(Pageable pageable) {
         return submissionRepository.findAll(pageable)
@@ -156,6 +166,69 @@ public class SubmissionService {
         triggerJudge(submission, submission.getProblem().getEvaluationType());
 
         return submissionMapper.toResponse(submission);
+    }
+
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_SELF') or hasAuthority('SUBMISSION_READ_ALL')")
+    public TestcaseDetailResponse getTestcaseDetail(UUID submissionId, UUID testcaseId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+
+        boolean canViewAll = securityHelper.hasAuthority("SUBMISSION_READ_ALL");
+        boolean isOwner = isSubmissionOwner(submission);
+
+        if (!canViewAll && !isOwner) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // Find the submission result for this testcase
+        SubmissionResult result = resultRepository.findBySubmissionSubmissionId(submissionId).stream()
+                .filter(r -> r.getTestcase().getTestcaseId().equals(testcaseId))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+
+        // Hidden testcase: only admins/instructors can view detail
+        if (result.getTestcase().getIsHidden() && !canViewAll) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // Read input and expected output from S3
+        String input = readFromS3(result.getTestcase().getInputPath());
+        String expectedOutput = readFromS3(result.getTestcase().getOutputPath());
+
+        // Read user output from S3
+        String userOutputPath = String.format("submissions/%s/results/%s/output.txt",
+                submissionId, testcaseId);
+        String actualOutput = readFromS3(userOutputPath);
+
+        return TestcaseDetailResponse.builder()
+                .input(input)
+                .expectedOutput(expectedOutput)
+                .actualOutput(actualOutput)
+                .build();
+    }
+
+    private String readFromS3(String path) {
+        try {
+            byte[] bytes = storageService.getFile(path).readAllBytes();
+            String content = new String(bytes).trim();
+            // Try Base64 decode (old submissions may have stored Base64-encoded output)
+            return tryDecodeBase64(content);
+        } catch (Exception e) {
+            log.warn("Failed to read file from S3: {}", path, e);
+            return "";
+        }
+    }
+
+    private String tryDecodeBase64(String value) {
+        if (value == null || value.isEmpty()) return value;
+        try {
+            // Only attempt decode if it looks like Base64 (no spaces, no newlines in first line)
+            if (!value.contains(" ") && !value.contains("\n") && value.matches("^[A-Za-z0-9+/=]+$")) {
+                return new String(Base64.getDecoder().decode(value));
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        return value;
     }
 
     private void triggerJudge(Submission submission, EvaluationType evalType) {

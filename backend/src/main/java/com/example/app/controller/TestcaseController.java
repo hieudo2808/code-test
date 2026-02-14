@@ -46,6 +46,14 @@ public class TestcaseController {
                 .build();
     }
 
+    @GetMapping("/testcases/{testcaseId}/content")
+    public ApiResponse<com.example.app.dto.response.TestcaseContentResponse> getTestcaseContent(
+            @PathVariable UUID testcaseId) {
+        return ApiResponse.<com.example.app.dto.response.TestcaseContentResponse>builder()
+                .result(testcaseService.getTestcaseContent(testcaseId))
+                .build();
+    }
+
     @PutMapping(value = "/testcases/{testcaseId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<TestcaseResponse> updateTestcase(
             @PathVariable UUID testcaseId,

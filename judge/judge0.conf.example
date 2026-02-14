@@ -1,0 +1,75 @@
+# =====================================================================
+# Judge0 Configuration - Example
+# Copy this file to judge0.conf and fill in your values
+# =====================================================================
+
+# Cho phép tham số dòng lệnh?
+ENABLE_COMMAND_LINE_ARGUMENTS=false
+
+# Cho phép xóa nộp bài?
+ENABLE_SUBMISSION_DELETE=false
+
+# Số lượng nộp bài tối đa (= số testcase)
+MAX_SUBMISSION_BATCH_SIZE=50
+
+# If enabled user can use callbacks.
+ENABLE_CALLBACKS=true
+
+# Cho phép thêm file vào sandbox?
+ENABLE_ADDITIONAL_FILES=false
+
+# Có dùng base64 encoded hay không?
+DISABLE_IMPLICIT_BASE64_ENCODING=true
+
+
+################################################################################
+# Judge0 Server Access Configuration
+################################################################################
+ALLOW_ORIGIN=
+ALLOW_IP=
+
+################################################################################
+# Judge0 Authentication Configuration
+################################################################################
+AUTHN_TOKEN=your_judge0_auth_token_here
+
+################################################################################
+# Redis Configuration
+################################################################################
+REDIS_HOST=your_redis_host
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+
+################################################################################
+# PostgreSQL Configuration (used internally by Judge0)
+################################################################################
+POSTGRES_HOST=your_postgres_host
+POSTGRES_PORT=5432
+POSTGRES_DB=judge0
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_postgres_password
+
+################################################################################
+# Submission Configuration
+################################################################################
+
+# Lượng RAM tối đa code được dùng. kilobytes.
+MEMORY_LIMIT=265000
+# Vùng nhớ dành riêng cho các hàm gọi đệ quy. kilobytes.
+STACK_LIMIT=128000
+# Lượng stack tối đa code được dùng. kilobytes.
+MAX_STACK_LIMIT=256000
+
+# Cho phép Backend gửi request để ghi đè setting ở trên hay không.
+ALLOW_ENABLE_PER_PROCESS_AND_THREAD_TIME_LIMIT=true
+ALLOW_ENABLE_PER_PROCESS_AND_THREAD_MEMORY_LIMIT=true
+
+# Kích thước tối đa của bất kỳ file nào mà chương trình người dùng tạo ra hoặc in ra màn hình.
+MAX_FILE_SIZE=10240
+MAX_MAX_FILE_SIZE=20480
+
+# Hệ thống sẽ chạy code của user bao nhiêu lần cho cùng 1 testcase
+MAX_NUMBER_OF_RUNS=5
+
+# Cho phép trong code có implement lời gọi kết nối đến internet?
+ALLOW_ENABLE_NETWORK=false

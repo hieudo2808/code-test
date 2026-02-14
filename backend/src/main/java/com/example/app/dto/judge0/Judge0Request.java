@@ -22,8 +22,14 @@ public class Judge0Request {
     @JsonProperty("cpu_time_limit")
     private Double cpuTimeLimit;
 
+    @JsonProperty("wall_time_limit")
+    private Double wallTimeLimit;
+
     @JsonProperty("memory_limit")
     private Integer memoryLimit;
+
+    @JsonProperty("redirect_stderr_to_stdout")
+    private Boolean redirectStderrToStdout;
 
     @JsonProperty("callback_url")
     private String callbackUrl;

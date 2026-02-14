@@ -22,8 +22,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
 
     Page<Submission> findByContestContestId(UUID contestId, Pageable pageable);
 
-    long countBySubmitterUserIdAndSubmissionStatus(UUID submitterId, SubmissionStatus status);
-
     long countByContestContestIdAndProblemProblemIdAndSubmitterUserId(UUID contestId, UUID problemId, UUID submitterId);
 
     // Statistics
@@ -42,6 +40,8 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     @Query("SELECT COUNT(DISTINCT s.submitter.userId) FROM Submission s " +
            "WHERE s.problem.problemId = :problemId AND s.finalVerdict = 'ACCEPTED'")
     long countDistinctSolversByProblem(@Param("problemId") UUID problemId);
+
+    Page<Submission> findBySubmitterUserIdAndProblemProblemId(UUID submitterId, UUID problemId, Pageable pageable);
 
     // Admin stats
     long countBySubmissionStatus(SubmissionStatus status);

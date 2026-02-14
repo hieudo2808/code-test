@@ -3,6 +3,7 @@ package com.example.app.controller;
 import com.example.app.dto.ApiResponse;
 import com.example.app.dto.request.submission.SubmitCodeRequest;
 import com.example.app.dto.response.SubmissionResponse;
+import com.example.app.dto.response.TestcaseDetailResponse;
 import com.example.app.service.SubmissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,15 @@ public class SubmissionController {
                 .build();
     }
 
+    @GetMapping("/me/problem/{problemId}")
+    public ApiResponse<Page<SubmissionResponse>> getMySubmissionsByProblem(
+            @PathVariable UUID problemId,
+            @PageableDefault(size = 5, sort = "createAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return ApiResponse.<Page<SubmissionResponse>>builder()
+                .result(submissionService.getMySubmissionsByProblem(problemId, pageable))
+                .build();
+    }
+
     @GetMapping
     public ApiResponse<Page<SubmissionResponse>> getAllSubmissions(
             @PageableDefault(size = 20) Pageable pageable) {
@@ -65,6 +75,15 @@ public class SubmissionController {
         return ApiResponse.<SubmissionResponse>builder()
                 .message("Rejudge triggered successfully")
                 .result(submissionService.rejudge(submissionId))
+                .build();
+    }
+
+    @GetMapping("/{submissionId}/results/{testcaseId}/detail")
+    public ApiResponse<TestcaseDetailResponse> getTestcaseDetail(
+            @PathVariable UUID submissionId,
+            @PathVariable UUID testcaseId) {
+        return ApiResponse.<TestcaseDetailResponse>builder()
+                .result(submissionService.getTestcaseDetail(submissionId, testcaseId))
                 .build();
     }
 }

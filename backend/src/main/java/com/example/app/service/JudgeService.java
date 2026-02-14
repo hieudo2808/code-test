@@ -24,6 +24,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -31,7 +33,7 @@ import java.util.UUID;
 public class JudgeService {
     private final Judge0Client judge0Client;
     private final JudgeRateLimiter rateLimiter;
-    private final StorageService storageService;
+    private final S3StorageService storageService;
     private final SubmissionRepository submissionRepository;
     private final SubmissionResultRepository resultRepository;
     private final TestcaseRepository testcaseRepository;
@@ -52,25 +54,40 @@ public class JudgeService {
             Problem problem = submission.getProblem();
             List<Testcase> testcases = testcaseRepository.findByProblemProblemId(problem.getProblemId());
 
-            for (Testcase tc : testcases) {
-                // Read input from S3
-                String input = readTestcaseInput(tc.getInputPath());
+            // Pre-fetch all testcase inputs from S3 in parallel
+            List<CompletableFuture<String>> inputFutures = testcases.stream()
+                    .map(tc -> CompletableFuture.supplyAsync(() -> readTestcaseInput(tc.getInputPath())))
+                    .toList();
+            CompletableFuture.allOf(inputFutures.toArray(new CompletableFuture[0])).join();
 
-                Judge0Request req = Judge0Request.builder()
+            // Build all Judge0 requests
+            Double cpuTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0;
+            Double wallTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() * 2 : 10.0;
+            Integer memoryLimit = problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000;
+
+            List<Judge0Request> batchRequests = new ArrayList<>();
+            for (int i = 0; i < testcases.size(); i++) {
+                String input = inputFutures.get(i).join();
+                batchRequests.add(Judge0Request.builder()
                         .languageId(submission.getLanguageId())
                         .sourceCode(submission.getSourceCode())
                         .stdin(input)
-                        .cpuTimeLimit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
-                        .memoryLimit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
-                        .build();
+                        .cpuTimeLimit(cpuTimeLimit)
+                        .wallTimeLimit(wallTimeLimit)
+                        .memoryLimit(memoryLimit)
+                        .redirectStderrToStdout(true)
+                        .build());
+            }
 
-                String token = judge0Client.submit(req);
+            // Submit all at once via batch API
+            List<String> tokens = judge0Client.submitBatch(batchRequests);
 
-                // Save pending result with token
+            // Save pending results with tokens
+            for (int i = 0; i < testcases.size(); i++) {
                 SubmissionResult result = SubmissionResult.builder()
                         .submission(submission)
-                        .testcase(tc)
-                        .judge0Token(token)
+                        .testcase(testcases.get(i))
+                        .judge0Token(tokens.get(i))
                         .build();
                 resultRepository.save(result);
             }
@@ -126,12 +143,23 @@ public class JudgeService {
                         .sourceCode(submission.getSourceCode())
                         .stdin(input)
                         .cpuTimeLimit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0)
+                        .wallTimeLimit(problem.getTimeLimit() != null ? problem.getTimeLimit() * 2 : 10.0)
                         .memoryLimit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
+                        .redirectStderrToStdout(true)
                         .build();
 
                 Judge0Response userResult = judge0Client.submitSync(userReq, 30);
                 
-                // Check if user code ran successfully
+                // Save user output to S3 for later viewing
+                String userStdout = userResult.getStdout() != null ? userResult.getStdout() : "";
+                try {
+                    storageService.saveSubmissionOutput(
+                            submission.getSubmissionId(), tc.getTestcaseId(), userStdout);
+                } catch (Exception ex) {
+                    log.warn("Failed to save user output to S3 for submission={}, testcase={}",
+                            submission.getSubmissionId(), tc.getTestcaseId(), ex);
+                }
+
                 if (userResult.getStatus() == null || userResult.getStatus().getId() != 3) {
                     // Runtime error or other failure
                     SubmissionResult result = SubmissionResult.builder()
@@ -147,7 +175,7 @@ public class JudgeService {
                     continue;
                 }
 
-                String userOutput = userResult.getStdout() != null ? userResult.getStdout() : "";
+                String userOutput = userStdout;
                 String expectedOutput = readTestcaseOutput(tc.getOutputPath());
 
                 // Step 2: Run scorer with (input, userOutput, expectedOutput)
@@ -158,7 +186,9 @@ public class JudgeService {
                         .sourceCode(problem.getScorerCode())
                         .stdin(scorerInput)
                         .cpuTimeLimit(10.0) // Scorer gets more time
+                        .wallTimeLimit(20.0)
                         .memoryLimit(256000)
+                        .redirectStderrToStdout(true)
                         .build();
 
                 Judge0Response scorerResult = judge0Client.submitSync(scorerReq, 30);
@@ -228,11 +258,48 @@ public class JudgeService {
                     return new AppException(ErrorCode.SUBMISSION_NOT_FOUND);
                 });
 
+        // Save user output to S3 for later viewing
+        try {
+            String userStdout = payload.getStdout() != null ? payload.getStdout() : "";
+            storageService.saveSubmissionOutput(
+                    result.getSubmission().getSubmissionId(),
+                    result.getTestcase().getTestcaseId(),
+                    userStdout);
+        } catch (Exception ex) {
+            log.warn("Failed to save user output to S3 for token={}", payload.getToken(), ex);
+        }
+
         // Map Judge0 status to verdict
         Verdict verdict = mapVerdict(payload.getStatus().getId());
-        result.setVerdict(verdict);
         result.setTimeMs(payload.getTime() != null ? payload.getTime() * 1000 : null);
         result.setMemoryKb(payload.getMemory() != null ? payload.getMemory().doubleValue() : null);
+
+        // Double-check resource limits even if Judge0 says Accepted
+        // Judge0 may not enforce cgroup limits perfectly in all cases
+        if (verdict == Verdict.ACCEPTED) {
+            Problem problem = result.getSubmission().getProblem();
+
+            // Check memory limit (problem stores MB, Judge0 returns KB)
+            if (problem.getMemoryLimit() != null && payload.getMemory() != null) {
+                int memoryLimitKb = problem.getMemoryLimit() * 1024;
+                if (payload.getMemory() > memoryLimitKb) {
+                    verdict = Verdict.MEMORY_LIMIT;
+                    log.warn("Memory limit exceeded for token {}: used={}KB, limit={}KB",
+                            payload.getToken(), payload.getMemory(), memoryLimitKb);
+                }
+            }
+
+            // Check time limit (problem stores seconds, Judge0 returns seconds)
+            if (problem.getTimeLimit() != null && payload.getTime() != null) {
+                if (payload.getTime() > problem.getTimeLimit()) {
+                    verdict = Verdict.TIME_LIMIT;
+                    log.warn("Time limit exceeded for token {}: used={}s, limit={}s",
+                            payload.getToken(), payload.getTime(), problem.getTimeLimit());
+                }
+            }
+        }
+
+        result.setVerdict(verdict);
 
         // Set error message for non-accepted verdicts
         if (verdict != Verdict.ACCEPTED) {
@@ -256,7 +323,7 @@ public class JudgeService {
         aggregateIfComplete(result.getSubmission().getSubmissionId());
     }
 
-    private void aggregateIfComplete(UUID submissionId) {
+    public void aggregateIfComplete(UUID submissionId) {
         long pending = resultRepository.countPendingBySubmissionId(submissionId);
         if (pending > 0) return;
 
@@ -277,25 +344,15 @@ public class JudgeService {
                 .max(Comparator.comparingInt(this::verdictPriority))
                 .orElse(Verdict.ACCEPTED);
 
-        // Calculate timing
-        double totalTime = results.stream()
-                .mapToDouble(r -> r.getTimeMs() != null ? r.getTimeMs() : 0)
-                .sum();
-        double peakMemory = results.stream()
-                .mapToDouble(r -> r.getMemoryKb() != null ? r.getMemoryKb() : 0)
-                .max().orElse(0);
-
         submission.setFinalScore(totalScore);
         submission.setFinalVerdict(worstVerdict);
-        submission.setTotalTimeMs(totalTime);
-        submission.setPeakMemoryKb(peakMemory);
         submission.setSubmissionStatus(SubmissionStatus.DONE);
         submissionRepository.save(submission);
 
         log.info("Submission {} completed: verdict={}, score={}", submissionId, worstVerdict, totalScore);
     }
 
-    private Verdict mapVerdict(Integer statusId) {
+    public Verdict mapVerdict(Integer statusId) {
         if (statusId == null) return Verdict.RUNTIME_ERROR;
         return switch (statusId) {
             case 1, 2 -> null; // In Queue / Processing

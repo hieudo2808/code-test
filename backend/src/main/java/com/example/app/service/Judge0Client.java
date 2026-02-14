@@ -7,6 +7,7 @@ import com.example.app.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
@@ -14,6 +15,8 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
 
 @Slf4j
 @Service
@@ -47,7 +50,9 @@ public class Judge0Client {
         String jsonBody;
         try {
             jsonBody = objectMapper.writeValueAsString(request);
-            log.info("Sending to Judge0: {}", jsonBody);
+            log.info("Judge0 submit: language_id={}, cpu_time_limit={}, wall_time_limit={}, memory_limit={}, redirect_stderr={}",
+                    request.getLanguageId(), request.getCpuTimeLimit(), request.getWallTimeLimit(),
+                    request.getMemoryLimit(), request.getRedirectStderrToStdout());
         } catch (Exception e) {
             log.error("Failed to serialize request", e);
             throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
@@ -57,7 +62,7 @@ public class Judge0Client {
 
         try {
             ResponseEntity<Judge0Response> response = restTemplate.exchange(
-                    baseUrl + "/submissions",
+                    baseUrl + "/submissions?base64_encoded=false",
                     HttpMethod.POST,
                     entity,
                     Judge0Response.class
@@ -75,6 +80,74 @@ public class Judge0Client {
             log.warn("Judge0 connection error: {}", e.getMessage());
             throw e;
         }
+    }
+
+    /**
+     * Submit multiple submissions in a single HTTP call using Judge0 batch API.
+     * Judge0 compiles the source code once and reuses it for all submissions in the batch.
+     * Returns a list of tokens in the same order as the input requests.
+     */
+    @Retryable(
+            retryFor = {ResourceAccessException.class, AppException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2)
+    )
+    public List<String> submitBatch(List<Judge0Request> requests) {
+        if (requests.isEmpty()) return List.of();
+
+        // Set callback URL for all requests
+        requests.forEach(r -> r.setCallbackUrl(callbackUrl));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Auth-Token", authToken);
+
+        // Judge0 batch API expects {"submissions": [...]}
+        String jsonBody;
+        try {
+            var wrapper = new java.util.HashMap<String, Object>();
+            wrapper.put("submissions", requests);
+            jsonBody = objectMapper.writeValueAsString(wrapper);
+
+            Judge0Request first = requests.get(0);
+            log.info("Judge0 batch submit: {} submissions, language_id={}, cpu_time_limit={}, wall_time_limit={}, memory_limit={}",
+                    requests.size(), first.getLanguageId(), first.getCpuTimeLimit(),
+                    first.getWallTimeLimit(), first.getMemoryLimit());
+        } catch (Exception e) {
+            log.error("Failed to serialize batch request", e);
+            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
+        }
+
+        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
+
+        try {
+            ResponseEntity<List<Judge0Response>> response = restTemplate.exchange(
+                    baseUrl + "/submissions/batch?base64_encoded=false",
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<List<Judge0Response>>() {}
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                List<String> tokens = response.getBody().stream()
+                        .map(Judge0Response::getToken)
+                        .toList();
+                log.debug("Batch submitted to Judge0, {} tokens received", tokens.size());
+                return tokens;
+            }
+
+            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
+
+        } catch (ResourceAccessException e) {
+            log.warn("Judge0 batch connection error: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    @Recover
+    public List<String> recoverSubmitBatch(Exception e, List<Judge0Request> requests) {
+        log.error("Judge0 batch submit failed after all retries", e);
+        throw new AppException(ErrorCode.JUDGE_SERVICE_UNAVAILABLE);
     }
 
     /**
@@ -100,7 +173,7 @@ public class Judge0Client {
 
         // Submit with wait=true parameter
         ResponseEntity<Judge0Response> response = restTemplate.exchange(
-                baseUrl + "/submissions?wait=true",
+                baseUrl + "/submissions?base64_encoded=false&wait=true",
                 HttpMethod.POST,
                 entity,
                 Judge0Response.class
@@ -120,7 +193,7 @@ public class Judge0Client {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         ResponseEntity<Judge0Response> response = restTemplate.exchange(
-                baseUrl + "/submissions/" + token,
+                baseUrl + "/submissions/" + token + "?base64_encoded=false",
                 HttpMethod.GET,
                 entity,
                 Judge0Response.class

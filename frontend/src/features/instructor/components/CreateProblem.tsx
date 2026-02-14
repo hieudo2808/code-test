@@ -42,7 +42,6 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
     // Limits
     const [timeLimit, setTimeLimit] = useState(1.0);
     const [memoryLimit, setMemoryLimit] = useState(256);
-    const [maxScore, setMaxScore] = useState(100);
 
     // Code
     const [solutionCode, setSolutionCode] = useState("");
@@ -53,6 +52,8 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
     // Testcases
     const [testcases, setTestcases] = useState<Testcase[]>([]);
     const [deletedTestcaseIds, setDeletedTestcaseIds] = useState<string[]>([]);
+
+    const maxScore = testcases.reduce((sum, tc) => sum + (tc.score || 0), 0);
 
     useEffect(() => {
         if (isEditMode && problemId) {
@@ -77,23 +78,34 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
             setIsPublic(problem.isPublic);
             setTimeLimit(problem.timeLimit);
             setMemoryLimit(problem.memoryLimit);
-            setMaxScore(problem.maxScore);
             setSolutionCode(problem.solutionCode || "");
             setSolutionLanguageId(problem.solutionLanguageId || 71);
             setScorerCode(problem.scorerCode || "");
             setScorerLanguageId(problem.scorerLanguageId || 71);
 
-            // Map testcases
-            setTestcases(
-                tcs.map((tc) => ({
-                    id: tc.testcaseId,
-                    input: "", // Content not available
-                    output: "",
-                    mode: "manual", // Default to manual for existing
-                    score: tc.testcasePoint,
-                    isHidden: tc.isHidden,
-                }))
+            // Map testcases and fetch content from S3
+            const testcasesWithContent = await Promise.all(
+                tcs.map(async (tc) => {
+                    let input = "";
+                    let output = "";
+                    try {
+                        const content = await problemService.getTestcaseContent(tc.testcaseId);
+                        input = content.input;
+                        output = content.output;
+                    } catch (e) {
+                        console.warn("Failed to fetch testcase content:", tc.testcaseId, e);
+                    }
+                    return {
+                        id: tc.testcaseId,
+                        input,
+                        output,
+                        mode: "manual" as TestcaseMode,
+                        score: tc.testcasePoint,
+                        isHidden: tc.isHidden,
+                    };
+                })
             );
+            setTestcases(testcasesWithContent);
         } catch (error) {
             console.error("Failed to fetch problem data:", error);
             // Handle error (notification?)
@@ -186,7 +198,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
             // Handle Create/Update
             for (const tc of testcases) {
                 if (tc.id) {
-                    // Update existing (points/hidden only)
+                    // Update existing
                     const formData = new FormData();
                     formData.append(
                         "request",
@@ -200,6 +212,14 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                             { type: "application/json" }
                         )
                     );
+
+                    // Send updated input/output files
+                    if (tc.input !== undefined) {
+                        formData.append("input", new Blob([tc.input], { type: "text/plain" }));
+                    }
+                    if (tc.output !== undefined) {
+                        formData.append("output", new Blob([tc.output], { type: "text/plain" }));
+                    }
 
                     await problemService.updateTestcase(tc.id, formData);
                 } else {
@@ -399,10 +419,31 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                                     </div>
 
                                     {tc.id ? (
-                                        <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm text-center text-gray-500">
-                                            Input and Output content stored securely on server.
-                                            <br />
-                                            Only points and visibility can be edited.
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <TextArea
+                                                label="Input"
+                                                value={tc.input}
+                                                onChange={(e) =>
+                                                    handleUpdateTestcase(
+                                                        index,
+                                                        "input",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                rows={3}
+                                            />
+                                            <TextArea
+                                                label="Expected Output"
+                                                value={tc.output}
+                                                onChange={(e) =>
+                                                    handleUpdateTestcase(
+                                                        index,
+                                                        "output",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                rows={3}
+                                            />
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -589,13 +630,14 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                                 />
                             </div>
 
-                            <Input
-                                label="Max Score"
-                                type="number"
-                                value={maxScore}
-                                onChange={(e) => setMaxScore(parseFloat(e.target.value))}
-                                min={0}
-                            />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Max Score
+                                </label>
+                                <div className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-900 dark:text-white font-semibold">
+                                    {maxScore || 0}
+                                </div>
+                            </div>
 
                             <div className="pt-4 border-t border-(--border-color)">
                                 <div className="flex gap-3">

@@ -47,6 +47,11 @@ export function DifficultyBadge({ difficulty }: DifficultyBadgeProps) {
 }
 
 export function StatusBadge({ status }: { status: string }) {
-    const variant = status === "Accepted" ? "success" : status === "Pending" ? "info" : "error";
+    const s = status.toUpperCase();
+    let variant: "success" | "info" | "warning" | "error";
+    if (s === "ACCEPTED") variant = "success";
+    else if (s === "PARTIAL" || s === "SCORED") variant = "warning";
+    else if (s === "PENDING" || s === "COMPILING" || s === "RUNNING" || s === "JUDGING") variant = "info";
+    else variant = "error";
     return <Badge variant={variant}>{status}</Badge>;
 }

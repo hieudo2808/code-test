@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-public class S3StorageService implements StorageService {
+public class S3StorageService {
 
     private final S3Client s3Client;
     private final String bucketName;
@@ -24,21 +24,25 @@ public class S3StorageService implements StorageService {
         this.bucketName = bucketName;
     }
 
-    @Override
     public String saveTestcaseInput(UUID problemId, UUID testcaseId, InputStream data, long contentLength) {
         String path = buildPath(problemId, testcaseId, "input.txt");
         uploadFile(path, data, contentLength);
         return path;
     }
 
-    @Override
     public String saveTestcaseOutput(UUID problemId, UUID testcaseId, InputStream data, long contentLength) {
         String path = buildPath(problemId, testcaseId, "output.txt");
         uploadFile(path, data, contentLength);
         return path;
     }
 
-    @Override
+    public String saveSubmissionOutput(UUID submissionId, UUID testcaseId, String content) {
+        String path = String.format("submissions/%s/results/%s/output.txt", submissionId, testcaseId);
+        byte[] bytes = content.getBytes();
+        uploadFile(path, new java.io.ByteArrayInputStream(bytes), bytes.length);
+        return path;
+    }
+
     public InputStream getFile(String path) {
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucketName)
@@ -48,7 +52,6 @@ public class S3StorageService implements StorageService {
         return s3Client.getObject(request);
     }
 
-    @Override
     public void delete(String path) {
         try {
             DeleteObjectRequest request = DeleteObjectRequest.builder()
@@ -63,7 +66,6 @@ public class S3StorageService implements StorageService {
         }
     }
 
-    @Override
     public int getFileSizeKb(String path) {
         try {
             HeadObjectRequest request = HeadObjectRequest.builder()
