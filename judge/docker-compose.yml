@@ -8,8 +8,7 @@ x-logging: &default-logging
 
 services:
   server:
-    build: .
-    image: judge0-custom
+    image: hieudo2808/judge0-custom:latest
     volumes:
       - ./judge0.conf:/judge0.conf:ro
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
@@ -18,12 +17,11 @@ services:
     ports:
       - "2358:2358"
     privileged: true
-    <<: *default-logging
     restart: always
+    <<: *default-logging
 
   worker:
-    build: .
-    image: judge0-custom
+    image: hieudo2808/judge0-custom:latest
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
@@ -31,5 +29,5 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     privileged: true
-    <<: *default-logging
     restart: always
+    <<: *default-logging
