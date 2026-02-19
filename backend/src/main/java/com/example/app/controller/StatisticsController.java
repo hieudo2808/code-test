@@ -1,6 +1,7 @@
 package com.example.app.controller;
 
 import com.example.app.dto.ApiResponse;
+import com.example.app.dto.response.InstructorStatsResponse;
 import com.example.app.dto.response.ProblemStatsResponse;
 import com.example.app.dto.response.UserStatsResponse;
 import com.example.app.service.StatisticsService;
@@ -34,6 +35,13 @@ public class StatisticsController {
     public ApiResponse<ProblemStatsResponse> getProblemStats(@PathVariable UUID problemId) {
         return ApiResponse.<ProblemStatsResponse>builder()
                 .result(statisticsService.getProblemStats(problemId))
+                .build();
+    }
+
+    @GetMapping("/instructor")
+    public ApiResponse<InstructorStatsResponse> getInstructorStats() {
+        return ApiResponse.<InstructorStatsResponse>builder()
+                .result(statisticsService.getInstructorStats())
                 .build();
     }
 }

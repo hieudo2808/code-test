@@ -80,6 +80,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             reconnectDelay: 5000,
             heartbeatIncoming: 10000,
             heartbeatOutgoing: 10000,
+            beforeConnect: async () => {
+                // Refresh token before each connect/reconnect attempt
+                let currentToken = localStorage.getItem("token");
+                if (!currentToken) return;
+
+                try {
+                    // Decode JWT payload to check expiration
+                    const payload = JSON.parse(atob(currentToken.split(".")[1]));
+                    const expiresAt = payload.exp * 1000;
+                    const now = Date.now();
+                    // If token expires within 5 minutes, refresh it
+                    if (expiresAt - now < 5 * 60 * 1000) {
+                        const { default: api } = await import("~/services/api");
+                        const res = await api.post("/auth/refresh");
+                        const newToken = res.data.result.token;
+                        localStorage.setItem("token", newToken);
+                        currentToken = newToken;
+                    }
+                } catch (err) {
+                    console.warn("Failed to refresh token before WS connect:", err);
+                }
+
+                // Update connect headers with the (possibly refreshed) token
+                client.connectHeaders = {
+                    Authorization: `Bearer ${currentToken}`,
+                };
+            },
             onConnect: () => {
                 setIsConnected(true);
 

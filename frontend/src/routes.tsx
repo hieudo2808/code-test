@@ -10,6 +10,8 @@ import { RegisterPage } from "~/pages/auth/RegisterPage";
 
 // Student Pages
 import { HomePage } from "~/pages/student/HomePage";
+import { ContestListPage } from "~/pages/student/ContestListPage";
+import { ProblemListPage } from "~/pages/student/ProblemListPage";
 import { ContestDetailPage } from "~/pages/student/ContestDetailPage";
 import { ProblemDetailPage } from "~/pages/student/ProblemDetailPage";
 import { SubmissionDetailPage } from "~/pages/student/SubmissionDetailPage";
@@ -30,7 +32,11 @@ import { ProblemSubmissionsPage } from "~/pages/instructor/ProblemSubmissionsPag
 import { AdminDashboardPage } from "~/pages/admin/DashboardPage";
 import { UserManagementPage } from "~/pages/admin/UserManagementPage";
 import { NotificationPage } from "~/pages/admin/NotificationPage";
+import { SettingsPage } from "~/pages/admin/SettingsPage";
 import { UserRole } from "~/services/authService";
+
+// Shared Pages
+import { ProfilePage } from "~/pages/shared/ProfilePage";
 
 export const router = createBrowserRouter([
     // Public routes
@@ -59,7 +65,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "contests",
-                element: <HomePage />,
+                element: <ContestListPage />,
             },
             {
                 path: "contests/:id",
@@ -67,7 +73,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "problems",
-                element: <HomePage />,
+                element: <ProblemListPage />,
             },
             {
                 path: "problems/:id",
@@ -76,6 +82,10 @@ export const router = createBrowserRouter([
             {
                 path: "submissions/:id",
                 element: <SubmissionDetailPage />,
+            },
+            {
+                path: "profile",
+                element: <ProfilePage />,
             },
         ],
     },
@@ -137,6 +147,10 @@ export const router = createBrowserRouter([
                 path: "plagiarism/:contestId/:checkId",
                 element: <PlagiarismDetailPage />,
             },
+            {
+                path: "profile",
+                element: <ProfilePage />,
+            },
         ],
     },
 
@@ -163,16 +177,11 @@ export const router = createBrowserRouter([
             },
             {
                 path: "settings",
-                element: (
-                    <div className="text-center py-12">
-                        <h2 className="text-gray-900 dark:text-white text-xl mb-4">
-                            Cài đặt hệ thống
-                        </h2>
-                        <p className="text-gray-500 dark:text-gray-400">
-                            Tính năng đang được phát triển...
-                        </p>
-                    </div>
-                ),
+                element: <SettingsPage />,
+            },
+            {
+                path: "profile",
+                element: <ProfilePage />,
             },
         ],
     },

@@ -45,6 +45,7 @@ public enum ErrorCode {
 
     FORBIDDEN(4003, "Access denied", HttpStatus.FORBIDDEN),
     FILE_UPLOAD_FAILED(5001, "File upload failed", HttpStatus.INTERNAL_SERVER_ERROR),
+    SETTING_NOT_FOUND(5002, "Setting not found", HttpStatus.NOT_FOUND),
     ROLE_NOT_FOUND(1020, "Role not found", HttpStatus.NOT_FOUND );
 
     private final int code;

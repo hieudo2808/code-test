@@ -6,6 +6,7 @@ import {
     type RegisterData,
     type UserRole,
 } from "~/services/authService";
+import { userService } from "~/services/userService";
 
 interface AuthContextType {
     user: User | null;
@@ -15,6 +16,7 @@ interface AuthContextType {
     register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
     logout: () => void;
     hasRole: (roles: UserRole | UserRole[]) => boolean;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +54,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
     }, []);
 
+    const refreshUser = useCallback(async () => {
+        try {
+            const profile = await userService.getMyProfile();
+            const roleMap: Record<string, string> = {
+                STUDENT: "student",
+                INSTRUCTOR: "instructor",
+                ADMIN: "admin",
+            };
+            const updated: User = {
+                id: profile.userId,
+                name: profile.fullName,
+                email: profile.email,
+                role: (roleMap[profile.roleName?.toUpperCase()] || "student") as UserRole,
+                avatarUrl: profile.avatarUrl,
+                bio: profile.bio,
+                isActive: profile.isActive,
+                createdAt: profile.createdAt,
+            };
+            setUser(updated);
+            localStorage.setItem("codejudge_user", JSON.stringify(updated));
+        } catch (error) {
+            console.error("Failed to refresh user:", error);
+        }
+    }, []);
+
     const hasRole = useCallback(
         (roles: UserRole | UserRole[]) => {
             if (!user) return false;
@@ -69,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         hasRole,
+        refreshUser,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

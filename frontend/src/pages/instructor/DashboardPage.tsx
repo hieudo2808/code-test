@@ -5,14 +5,27 @@ export function InstructorDashboardPage() {
     const navigate = useNavigate();
 
     const handleNavigate = (page: string, id?: string) => {
-        if (page === "create-problem") {
-            navigate("/instructor/problems/new");
-        } else if (page === "edit-problem" && id) {
-            navigate(`/instructor/problems/${id}/edit`);
-        } else if (page === "create-contest") {
-            navigate("/instructor/contests/new");
-        } else {
-            navigate("/instructor");
+        switch (page) {
+            case "create-problem":
+                navigate("/instructor/problems/new");
+                break;
+            case "edit-problem":
+                if (id) navigate(`/instructor/problems/${id}/edit`);
+                break;
+            case "create-contest":
+                navigate("/instructor/contests/new");
+                break;
+            case "plagiarism":
+                navigate("/instructor/plagiarism");
+                break;
+            case "problems":
+                navigate("/instructor/problems");
+                break;
+            case "contests":
+                navigate("/instructor/contests");
+                break;
+            default:
+                navigate("/instructor");
         }
     };
 

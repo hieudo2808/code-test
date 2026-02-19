@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -68,4 +69,12 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
 
     // Admin stats
     long countBySubmissionStatus(SubmissionStatus status);
+
+    @Query("SELECT CAST(s.createAt AS DATE) AS day, COUNT(s) FROM Submission s " +
+           "WHERE s.createAt >= :since GROUP BY CAST(s.createAt AS DATE) ORDER BY day")
+    java.util.List<Object[]> countSubmissionsPerDay(@Param("since") OffsetDateTime since);
+
+    @Query("SELECT s.finalVerdict, COUNT(s) FROM Submission s " +
+           "WHERE s.finalVerdict IS NOT NULL GROUP BY s.finalVerdict")
+    java.util.List<Object[]> countByVerdict();
 }

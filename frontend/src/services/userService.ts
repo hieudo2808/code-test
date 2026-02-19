@@ -40,7 +40,35 @@ export const userService = {
     async deleteUser(id: string): Promise<void> {
         await api.delete(`/users/${id}`);
     },
+
+    async updateMyProfile(data: UpdateProfileRequest): Promise<UserResponse> {
+        const response = await api.put("/users/me", data);
+        return response.data.result;
+    },
+
+    async changePassword(data: ChangePasswordRequest): Promise<void> {
+        await api.put("/users/me/password", data);
+    },
+
+    async updateMyAvatar(file: File): Promise<string> {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await api.put("/users/me/avatar", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response.data.result;
+    },
 };
+
+export interface UpdateProfileRequest {
+    fullName?: string;
+    bio?: string;
+}
+
+export interface ChangePasswordRequest {
+    currentPassword: string;
+    newPassword: string;
+}
 
 export interface CreateUserRequest {
     fullName: string;

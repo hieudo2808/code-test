@@ -36,4 +36,6 @@ public interface ProblemRepository extends JpaRepository<Problem, UUID> {
     boolean hasSubmissions(@Param("problemId") UUID problemId);
 
     long countByIsPublicTrue();
+
+    long countByProblemCreatorUserId(UUID creatorId);
 }

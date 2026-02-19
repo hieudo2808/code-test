@@ -34,6 +34,7 @@ public class UserServices {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final SecurityHelper securityHelper;
+    private final S3StorageService s3StorageService;
 
     // ==================== ADMIN OPERATIONS ====================
 
@@ -132,5 +133,29 @@ public class UserServices {
         userRepository.save(user);
         
         log.info("User changed password: {}", user.getEmail());
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('USER_UPDATE_SELF')")
+    public String updateAvatar(org.springframework.web.multipart.MultipartFile file) {
+        UUID userId = securityHelper.getCurrentUserId();
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        try {
+            String avatarUrl = s3StorageService.uploadAvatar(
+                    userId,
+                    file.getOriginalFilename(),
+                    file.getInputStream(),
+                    file.getSize(),
+                    file.getContentType()
+            );
+            user.setAvatarUrl(avatarUrl);
+            userRepository.save(user);
+            log.info("User updated avatar: {}", user.getEmail());
+            return avatarUrl;
+        } catch (java.io.IOException e) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
     }
 }

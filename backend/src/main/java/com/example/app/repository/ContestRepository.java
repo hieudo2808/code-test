@@ -26,4 +26,6 @@ public interface ContestRepository extends JpaRepository<Contest, UUID> {
     Page<Contest> findByContestOwnerUserId(UUID ownerId, Pageable pageable);
 
     boolean existsByContestIdAndContestOwnerUserId(UUID contestId, UUID ownerId);
+
+    long countByContestOwnerUserId(UUID ownerId);
 }

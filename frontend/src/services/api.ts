@@ -2,6 +2,20 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
+// Global maintenance mode flag
+let maintenanceListeners: Array<(enabled: boolean) => void> = [];
+
+export function onMaintenanceChange(listener: (enabled: boolean) => void) {
+    maintenanceListeners.push(listener);
+    return () => {
+        maintenanceListeners = maintenanceListeners.filter((l) => l !== listener);
+    };
+}
+
+function notifyMaintenance(enabled: boolean) {
+    maintenanceListeners.forEach((l) => l(enabled));
+}
+
 const api = axios.create({
     baseURL: API_BASE_URL,
     withCredentials: true,
@@ -27,6 +41,13 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+
+        // Handle maintenance mode (503)
+        if (error.response?.status === 503) {
+            notifyMaintenance(true);
+            return Promise.reject(error);
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             try {
@@ -47,3 +68,12 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+export async function checkMaintenanceStatus(): Promise<boolean> {
+    try {
+        const response = await api.get("/maintenance/status");
+        return response.data.result?.maintenance === true;
+    } catch {
+        return false;
+    }
+}

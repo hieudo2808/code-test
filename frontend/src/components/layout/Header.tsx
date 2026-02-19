@@ -1,23 +1,33 @@
 import { useState, useRef, useEffect } from "react";
-import { Navigate } from "react-router-dom";
-import { Moon, Sun, Bell, LogOut, User, Check, CheckCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Moon, Sun, Bell, LogOut, User, Check, CheckCheck, PanelLeft } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 import { useNotifications } from "~/contexts/NotificationContext";
 
 interface HeaderProps {
     darkMode: boolean;
     onToggleDarkMode: () => void;
+    onToggleSidebar: () => void;
 }
 
-export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
+export function Header({ darkMode, onToggleDarkMode, onToggleSidebar }: HeaderProps) {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const handleLogout = () => {
         logout();
-        <Navigate to="/login" />;
+        navigate("/login");
+    };
+
+    const getProfilePath = () => {
+        if (!user) return "/profile";
+        const role = user.role?.toLowerCase();
+        if (role === "instructor") return "/instructor/profile";
+        if (role === "admin") return "/admin/profile";
+        return "/profile";
     };
 
     // Close dropdown on outside click
@@ -34,11 +44,11 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
     const getRoleLabel = (role?: string) => {
         switch (role) {
             case "student":
-                return "Sinh viên";
+                return "Student";
             case "instructor":
-                return "Giảng viên";
+                return "Instructor";
             case "admin":
-                return "Quản trị viên";
+                return "Admin";
             default:
                 return "";
         }
@@ -53,13 +63,13 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
         const diffMin = Math.floor(diffMs / 60000);
-        if (diffMin < 1) return "Vừa xong";
-        if (diffMin < 60) return `${diffMin} phút trước`;
+        if (diffMin < 1) return "Just now";
+        if (diffMin < 60) return `${diffMin}m ago`;
         const diffHours = Math.floor(diffMin / 60);
-        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffHours < 24) return `${diffHours}h ago`;
         const diffDays = Math.floor(diffHours / 24);
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleString("vi-VN", {
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleString("en-US", {
             day: "2-digit",
             month: "2-digit",
             year: "numeric",
@@ -69,14 +79,21 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
     };
 
     return (
-        <header className="h-14 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between px-6 sticky top-0 z-40">
-            <div className="flex items-center gap-4">
-                <h1 className="text-gray-900 dark:text-white font-bold">
+        <header className="h-14 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between px-3 sm:px-6 sticky top-0 z-40">
+            <div className="flex items-center gap-2 sm:gap-4">
+                <button
+                    onClick={onToggleSidebar}
+                    className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                    title="Toggle sidebar"
+                >
+                    <PanelLeft className="w-5 h-5" />
+                </button>
+                <h1 className="hidden md:block text-gray-900 dark:text-white font-bold text-sm lg:text-base">
                     Programming Judge Platform
                 </h1>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 sm:gap-3">
                 {/* Notifications */}
                 <div className="relative" ref={dropdownRef}>
                     <button
@@ -92,11 +109,11 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
                     </button>
 
                     {showDropdown && (
-                        <div className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
                             {/* Header */}
                             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                                 <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                    Thông báo
+                                    Notifications
                                 </h3>
                                 {unreadCount > 0 && (
                                     <button
@@ -106,7 +123,7 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
                                         className="text-xs text-red-500 hover:text-red-600 font-medium flex items-center gap-1"
                                     >
                                         <CheckCheck className="w-3.5 h-3.5" />
-                                        Đánh dấu tất cả đã đọc
+                                        Mark all as read
                                     </button>
                                 )}
                             </div>
@@ -115,7 +132,7 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
                             <div className="max-h-80 overflow-y-auto">
                                 {notifications.length === 0 ? (
                                     <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
-                                        Không có thông báo nào
+                                        No notifications
                                     </div>
                                 ) : (
                                     notifications.slice(0, 20).map((n) => (
@@ -160,7 +177,7 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
                                                             await markAsRead(n.notificationId);
                                                         }}
                                                         className="p-1 text-gray-400 hover:text-green-500 transition-colors flex-shrink-0"
-                                                        title="Đánh dấu đã đọc"
+                                                        title="Mark as read"
                                                     >
                                                         <Check className="w-4 h-4" />
                                                     </button>
@@ -185,7 +202,11 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
                 {/* User Info */}
                 {user && (
                     <div className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-2">
+                        <div
+                            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => navigate(getProfilePath())}
+                            title="View profile"
+                        >
                             <div className="w-8 h-8 rounded-full bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center">
                                 <User className="w-4 h-4 text-white" />
                             </div>
@@ -203,7 +224,7 @@ export function Header({ darkMode, onToggleDarkMode }: HeaderProps) {
                         <button
                             onClick={handleLogout}
                             className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200"
-                            title="Đăng xuất"
+                            title="Logout"
                         >
                             <LogOut className="w-5 h-5" />
                         </button>

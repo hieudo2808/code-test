@@ -10,6 +10,7 @@ import com.example.app.service.UserServices;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -84,6 +85,15 @@ public class UserController {
         userServices.changePassword(request);
         return ApiResponse.<Void>builder()
                 .message("Password changed successfully")
+                .build();
+    }
+
+    @PutMapping("/me/avatar")
+    public ApiResponse<String> updateAvatar(@RequestParam("file") MultipartFile file) {
+        String avatarUrl = userServices.updateAvatar(file);
+        return ApiResponse.<String>builder()
+                .message("Avatar updated successfully")
+                .result(avatarUrl)
                 .build();
     }
 }

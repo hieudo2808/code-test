@@ -1,41 +1,24 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
-import { FileText, Trophy, Users, TrendingUp, Plus, Edit, Trash2, Loader2 } from "lucide-react";
-import { Modal } from "~/components/ui/Modal";
-import { problemService, ProblemListItem } from "~/services/problemService";
-import { contestService, Contest } from "~/services/contestService";
+import {
+    FileText, Trophy, Users, TrendingUp, Plus, ShieldAlert, ClipboardList, Loader2, ArrowRight,
+} from "lucide-react";
+import { statsService, type InstructorStats } from "~/services/statsService";
+import { contestService, type Contest } from "~/services/contestService";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface InstructorDashboardProps {
     onNavigate: (page: string, id?: string) => void;
 }
 
-interface MyProblem {
-    id: string;
-    title: string;
-    difficulty: string;
-    submissions: number;
-    acceptanceRate: number;
-}
-
-interface MyContest {
-    id: string;
+interface ContestChartItem {
     name: string;
-    status: string;
     participants: number;
-    problems: number;
 }
 
 export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
-    const [deleteModal, setDeleteModal] = useState<{
-        isOpen: boolean;
-        type: string;
-        id: string;
-    } | null>(null);
-
-    const [myProblems, setMyProblems] = useState<MyProblem[]>([]);
-    const [myContests, setMyContests] = useState<MyContest[]>([]);
+    const [stats, setStats] = useState<InstructorStats | null>(null);
+    const [contestData, setContestData] = useState<ContestChartItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -45,32 +28,23 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                 setLoading(true);
                 setError(null);
 
-                // Fetch problems
-                const problemsResponse = await problemService.getMyProblems(0, 10);
-                const problemsData: MyProblem[] = problemsResponse.content.map(
-                    (p: ProblemListItem) => ({
-                        id: p.problemId,
-                        title: p.title,
-                        difficulty: p.difficulty || "MEDIUM",
-                        submissions: 0,
-                        acceptanceRate: p.acceptanceRate || 0,
-                    })
-                );
-                setMyProblems(problemsData);
+                const [statsRes, contestsRes] = await Promise.all([
+                    statsService.getInstructorStats(),
+                    contestService.getMyContests(0, 10),
+                ]);
 
-                // Fetch contests
-                const contestsResponse = await contestService.getMyContests(0, 10);
-                const contestsData: MyContest[] = contestsResponse.content.map((c: Contest) => ({
-                    id: c.contestId,
-                    name: c.contestName,
-                    status: c.state.toLowerCase(),
-                    participants: c.participantCount,
-                    problems: c.problemCount,
-                }));
-                setMyContests(contestsData);
+                setStats(statsRes);
+
+                const chartData: ContestChartItem[] = contestsRes.content
+                    .slice(0, 8)
+                    .map((c: Contest) => ({
+                        name: c.contestName.length > 15 ? c.contestName.slice(0, 15) + "…" : c.contestName,
+                        participants: c.participantCount,
+                    }));
+                setContestData(chartData);
             } catch (err) {
-                console.error("Error fetching data:", err);
-                setError("Failed to load data. Please try again.");
+                console.error("Error fetching instructor stats:", err);
+                setError("Failed to load dashboard data.");
             } finally {
                 setLoading(false);
             }
@@ -79,28 +53,11 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
         fetchData();
     }, []);
 
-    const handleDelete = async () => {
-        if (!deleteModal) return;
-        try {
-            if (deleteModal.type === "problem") {
-                await problemService.deleteProblem(deleteModal.id);
-                setMyProblems(myProblems.filter((p) => p.id !== deleteModal.id));
-            } else {
-                await contestService.deleteContest(deleteModal.id);
-                setMyContests(myContests.filter((c) => c.id !== deleteModal.id));
-            }
-        } catch (error) {
-            console.error("Failed to delete:", error);
-            alert("Failed to delete. Please try again.");
-        }
-        setDeleteModal(null);
-    };
-
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 animate-spin text-(--primary-600)" />
-                <span className="ml-2 text-(--text-secondary)">Loading...</span>
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+                <span className="ml-2 text-(--text-secondary)">Loading dashboard...</span>
             </div>
         );
     }
@@ -109,44 +66,67 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
         return (
             <div className="text-center py-8">
                 <p className="text-red-500">{error}</p>
-                <Button onClick={() => window.location.reload()} className="mt-4">
+                <button
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
                     Retry
-                </Button>
+                </button>
             </div>
         );
     }
 
+    const quickActions = [
+        {
+            title: "Create Problem",
+            description: "Add a new coding problem with test cases",
+            icon: Plus,
+            color: "bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400",
+            action: () => onNavigate("create-problem"),
+        },
+        {
+            title: "Create Contest",
+            description: "Set up a new programming contest",
+            icon: Trophy,
+            color: "bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400",
+            action: () => onNavigate("create-contest"),
+        },
+        {
+            title: "Plagiarism Check",
+            description: "Detect code similarity across submissions",
+            icon: ShieldAlert,
+            color: "bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400",
+            action: () => onNavigate("plagiarism"),
+        },
+        {
+            title: "Manage Problems",
+            description: "View and edit your existing problems",
+            icon: ClipboardList,
+            color: "bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400",
+            action: () => onNavigate("problems"),
+        },
+    ];
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-(--text-primary) mb-2">Instructor Dashboard</h1>
-                    <p className="text-(--text-secondary)">
-                        Manage your problems, contests, and track student performance.
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <Button onClick={() => onNavigate("create-problem")}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create Problem
-                    </Button>
-                    <Button onClick={() => onNavigate("create-contest")}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create Contest
-                    </Button>
-                </div>
+            {/* Header */}
+            <div>
+                <h1 className="text-(--text-primary) mb-1">Instructor Dashboard</h1>
+                <p className="text-(--text-secondary)">
+                    Manage your problems, contests, and track student performance.
+                </p>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">Total Problems</p>
-                                <h2 className="text-(--text-primary) mt-1">{myProblems.length}</h2>
+                                <p className="text-(--text-secondary) text-sm">Total Problems</p>
+                                <h2 className="text-(--text-primary) mt-1">{stats?.totalProblems ?? 0}</h2>
                             </div>
-                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center">
                                 <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                             </div>
                         </div>
@@ -157,10 +137,10 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">Active Contests</p>
-                                <h2 className="text-(--text-primary) mt-1">{myContests.length}</h2>
+                                <p className="text-(--text-secondary) text-sm">Total Contests</p>
+                                <h2 className="text-(--text-primary) mt-1">{stats?.totalContests ?? 0}</h2>
                             </div>
-                            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-xl flex items-center justify-center">
                                 <Trophy className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                             </div>
                         </div>
@@ -171,12 +151,10 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">Total Participants</p>
-                                <h2 className="text-(--text-primary) mt-1">
-                                    {myContests.reduce((sum, c) => sum + c.participants, 0)}
-                                </h2>
+                                <p className="text-(--text-secondary) text-sm">Total Participants</p>
+                                <h2 className="text-(--text-primary) mt-1">{stats?.totalParticipants ?? 0}</h2>
                             </div>
-                            <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/50 rounded-xl flex items-center justify-center">
                                 <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
                             </div>
                         </div>
@@ -187,10 +165,10 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-(--text-tertiary) text-sm">Avg Acceptance</p>
-                                <h2 className="text-(--text-primary) mt-1">45.9%</h2>
+                                <p className="text-(--text-secondary) text-sm">Avg Acceptance</p>
+                                <h2 className="text-(--text-primary) mt-1">{stats?.avgAcceptanceRate ?? 0}%</h2>
                             </div>
-                            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/50 rounded-xl flex items-center justify-center">
                                 <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                             </div>
                         </div>
@@ -198,234 +176,70 @@ export function InstructorDashboard({ onNavigate }: InstructorDashboardProps) {
                 </Card>
             </div>
 
-            {/* My Problems */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-(--text-primary)">My Problems</h3>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onNavigate("create-problem")}
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add New
-                        </Button>
-                    </div>
-                </CardHeader>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-(--border-color)">
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Title
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Difficulty
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Submissions
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Acceptance
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs text-(--text-tertiary) uppercase">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {myProblems.map((problem) => (
-                                <tr
-                                    key={problem.id}
-                                    className="border-b border-(--border-color) hover:bg-(--bg-tertiary) transition-colors"
+            {/* Quick Actions */}
+            <div>
+                <h3 className="text-(--text-primary) mb-3">Quick Actions</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {quickActions.map((action) => {
+                        const Icon = action.icon;
+                        return (
+                            <Card key={action.title}>
+                                <button
+                                    onClick={action.action}
+                                    className="w-full p-5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl transition-colors group"
                                 >
-                                    <td className="px-6 py-4">
-                                        <span className="text-(--text-primary)">
-                                            {problem.title}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <Badge
-                                            variant={
-                                                problem.difficulty === "Easy"
-                                                    ? "success"
-                                                    : problem.difficulty === "Medium"
-                                                      ? "warning"
-                                                      : "error"
-                                            }
-                                        >
-                                            {problem.difficulty}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-(--text-secondary)">
-                                            {problem.submissions}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-(--text-secondary)">
-                                            {problem.acceptanceRate}%
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    onNavigate("edit-problem", problem.id)
-                                                }
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    setDeleteModal({
-                                                        isOpen: true,
-                                                        type: "problem",
-                                                        id: problem.id,
-                                                    })
-                                                }
-                                            >
-                                                <Trash2 className="w-4 h-4 text-red-600" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${action.color}`}>
+                                        <Icon className="w-5 h-5" />
+                                    </div>
+                                    <h4 className="text-(--text-primary) font-semibold text-sm mb-1 group-hover:text-red-500 transition-colors">
+                                        {action.title}
+                                    </h4>
+                                    <p className="text-(--text-secondary) text-xs leading-relaxed">
+                                        {action.description}
+                                    </p>
+                                    <ArrowRight className="w-4 h-4 text-gray-400 mt-2 group-hover:text-red-500 group-hover:translate-x-1 transition-all" />
+                                </button>
+                            </Card>
+                        );
+                    })}
                 </div>
-            </Card>
+            </div>
 
-            {/* My Contests */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-(--text-primary)">My Contests</h3>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onNavigate("create-contest")}
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add New
-                        </Button>
-                    </div>
-                </CardHeader>
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-(--border-color)">
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Name
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Problems
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs text-(--text-tertiary) uppercase">
-                                    Participants
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs text-(--text-tertiary) uppercase">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {myContests.map((contest) => (
-                                <tr
-                                    key={contest.id}
-                                    className="border-b border-(--border-color) hover:bg-(--bg-tertiary) transition-colors"
-                                >
-                                    <td className="px-6 py-4">
-                                        <span className="text-(--text-primary)">
-                                            {contest.name}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <Badge
-                                            variant={
-                                                contest.status === "ongoing"
-                                                    ? "success"
-                                                    : contest.status === "upcoming"
-                                                      ? "info"
-                                                      : "default"
-                                            }
-                                        >
-                                            {contest.status.toUpperCase()}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-(--text-secondary)">
-                                            {contest.problems}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-(--text-secondary)">
-                                            {contest.participants}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    onNavigate("edit-contest", contest.id)
-                                                }
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    setDeleteModal({
-                                                        isOpen: true,
-                                                        type: "contest",
-                                                        id: contest.id,
-                                                    })
-                                                }
-                                            >
-                                                <Trash2 className="w-4 h-4 text-red-600" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
-
-            {/* Delete Confirmation Modal */}
-            {deleteModal && (
-                <Modal
-                    isOpen={deleteModal.isOpen}
-                    onClose={() => setDeleteModal(null)}
-                    title={`Delete ${deleteModal.type === "problem" ? "Problem" : "Contest"}`}
-                    footer={
-                        <>
-                            <Button variant="outline" onClick={() => setDeleteModal(null)}>
-                                Cancel
-                            </Button>
-                            <Button variant="danger" onClick={handleDelete}>
-                                Delete
-                            </Button>
-                        </>
-                    }
-                >
-                    <p className="text-(--text-primary)">
-                        Are you sure you want to delete this {deleteModal.type}? This action cannot
-                        be undone.
-                    </p>
-                </Modal>
+            {/* Contest Participants Chart */}
+            {contestData.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <h3 className="text-(--text-primary)">Participants per Contest</h3>
+                    </CardHeader>
+                    <CardBody>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={contestData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
+                                        axisLine={{ stroke: "var(--border-color)" }}
+                                    />
+                                    <YAxis
+                                        tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
+                                        axisLine={{ stroke: "var(--border-color)" }}
+                                        allowDecimals={false}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: "var(--bg-app)",
+                                            border: "1px solid var(--border-color)",
+                                            borderRadius: "0.5rem",
+                                            fontSize: "0.875rem",
+                                        }}
+                                    />
+                                    <Bar dataKey="participants" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardBody>
+                </Card>
             )}
         </div>
     );

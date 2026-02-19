@@ -1,23 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardBody } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Badge, DifficultyBadge } from "~/components/ui/badge";
-import { Trophy, Clock, Users, ChevronRight, Loader2 } from "lucide-react";
+import { Trophy, Clock, Users, FileText, ArrowRight, Loader2, CheckCircle } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
-import { contestService, type Contest } from "~/services/contestService";
-import { problemService, type ProblemListItem } from "~/services/problemService";
 import { statsService, type UserStats } from "~/services/statsService";
 
 export function HomePage() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
-    const [statusFilter, setStatusFilter] = useState<string>("RUNNING");
-
-    // Data states
-    const [contests, setContests] = useState<Contest[]>([]);
-    const [problems, setProblems] = useState<ProblemListItem[]>([]);
     const [stats, setStats] = useState<UserStats | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -25,52 +15,16 @@ export function HomePage() {
         async function fetchData() {
             try {
                 setLoading(true);
-                const [contestsRes, problemsRes, statsRes] = await Promise.all([
-                    contestService.getContests(),
-                    problemService.getProblems(),
-                    statsService.getMyStats(),
-                ]);
-                setContests(contestsRes.content || []);
-                setProblems(problemsRes.content || []);
+                const statsRes = await statsService.getMyStats();
                 setStats(statsRes);
             } catch (error) {
-                console.error("Error fetching data:", error);
+                console.error("Error fetching stats:", error);
             } finally {
                 setLoading(false);
             }
         }
         fetchData();
     }, []);
-
-    const filteredContests = contests.filter((contest) => {
-        if (statusFilter === "all") return true;
-        return contest.state === statusFilter.toUpperCase();
-    });
-
-    const filteredProblems = problems.filter((problem) => {
-        if (difficultyFilter === "all") return true;
-        return problem.difficulty === difficultyFilter.toUpperCase();
-    });
-
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString("vi-VN", {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };
-
-    const getContestStatusBadge = (state: Contest["state"]) => {
-        const variants: Record<string, "info" | "success" | "default" | "warning"> = {
-            UPCOMING: "info",
-            RUNNING: "success",
-            FROZEN: "warning",
-            FINISHED: "default",
-        };
-        return <Badge variant={variants[state] || "default"}>{state}</Badge>;
-    };
 
     if (loading) {
         return (
@@ -80,234 +34,132 @@ export function HomePage() {
         );
     }
 
+    const acceptancePercent = stats ? Math.round(stats.acceptanceRate * 100) : 0;
+
+    const quickActions = [
+        {
+            title: "Browse Contests",
+            description: "Join contests and compete with others",
+            icon: Trophy,
+            color: "from-blue-500 to-blue-600",
+            path: "/contests",
+        },
+        {
+            title: "Practice Problems",
+            description: "Solve problems to sharpen your skills",
+            icon: FileText,
+            color: "from-purple-500 to-purple-600",
+            path: "/problems",
+        },
+    ];
+
     return (
         <div className="space-y-6">
-            <div className="animate-fade-in">
-                <h1 className="text-gray-900 dark:text-white mb-2">
-                    Chào mừng, {user?.name || "User"}!
+            {/* Welcome */}
+            <div>
+                <h1 className="text-(--text-primary) mb-1">
+                    Welcome, {user?.name || "User"}!
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                    Luyện tập bài tập và tham gia các cuộc thi để nâng cao kỹ năng của bạn.
+                <p className="text-(--text-secondary)">
+                    Practice problems and join contests to improve your skills.
                 </p>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card hover={true}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wide">
-                                    Bài đã giải
-                                </p>
-                                <h2 className="text-gray-900 dark:text-white mt-2 text-3xl font-bold">
-                                    {stats?.solvedProblems || 0}
-                                </h2>
+                                <p className="text-(--text-secondary) text-sm">Problems Solved</p>
+                                <h2 className="text-(--text-primary) mt-1">{stats?.solvedProblems ?? 0}</h2>
                             </div>
-                            <div className="w-14 h-14 bg-linear-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                                <Trophy className="w-6 h-6 text-white" />
+                            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/50 rounded-xl flex items-center justify-center">
+                                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
                             </div>
                         </div>
                     </CardBody>
                 </Card>
 
-                <Card hover={true}>
+                <Card>
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wide">
-                                    Tổng bài nộp
+                                <p className="text-(--text-secondary) text-sm">Total Submissions</p>
+                                <h2 className="text-(--text-primary) mt-1">{stats?.totalSubmissions ?? 0}</h2>
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                    {stats?.acceptedCount ?? 0} accepted
                                 </p>
-                                <h2 className="text-gray-900 dark:text-white mt-2 text-3xl font-bold">
-                                    {stats?.totalSubmissions || 0}
-                                </h2>
                             </div>
-                            <div className="w-14 h-14 bg-linear-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
-                                <Clock className="w-6 h-6 text-white" />
+                            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/50 rounded-xl flex items-center justify-center">
+                                <Clock className="w-6 h-6 text-red-600 dark:text-red-400" />
                             </div>
                         </div>
                     </CardBody>
                 </Card>
 
-                <Card hover={true}>
+                <Card>
                     <CardBody>
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wide">
-                                    Cuộc thi đã tham gia
-                                </p>
-                                <h2 className="text-gray-900 dark:text-white mt-2 text-3xl font-bold">
-                                    {stats?.contestsJoined || 0}
-                                </h2>
+                                <p className="text-(--text-secondary) text-sm">Contests Joined</p>
+                                <h2 className="text-(--text-primary) mt-1">{stats?.contestsJoined ?? 0}</h2>
                             </div>
-                            <div className="w-14 h-14 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                                <Users className="w-6 h-6 text-white" />
+                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center">
+                                <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                            </div>
+                        </div>
+                    </CardBody>
+                </Card>
+
+                <Card>
+                    <CardBody>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-(--text-secondary) text-sm">Acceptance Rate</p>
+                                <h2 className="text-(--text-primary) mt-1">{acceptancePercent}%</h2>
+                            </div>
+                            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/50 rounded-xl flex items-center justify-center">
+                                <Trophy className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                             </div>
                         </div>
                     </CardBody>
                 </Card>
             </div>
 
-            {/* Active Contests */}
+            {/* Quick Actions */}
             <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-gray-900 dark:text-white text-xl font-bold">
-                        Cuộc thi đang diễn ra
-                    </h2>
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium shadow-sm hover:border-gray-400 transition-all cursor-pointer"
-                        >
-                            <option value="all">Tất cả trạng thái</option>
-                            <option value="UPCOMING">Sắp diễn ra</option>
-                            <option value="RUNNING">Đang diễn ra</option>
-                            <option value="FINISHED">Đã kết thúc</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="space-y-3">
-                    {filteredContests.length === 0 ? (
-                        <Card>
-                            <CardBody>
-                                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                                    Không có cuộc thi nào.
-                                </p>
-                            </CardBody>
-                        </Card>
-                    ) : (
-                        filteredContests.map((contest) => (
-                            <Card key={contest.contestId} hover={true}>
+                <h2 className="text-(--text-primary) text-xl font-bold mb-4">Quick Actions</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {quickActions.map((action) => {
+                        const Icon = action.icon;
+                        return (
+                            <Card key={action.path}>
                                 <CardBody>
                                     <div
-                                        className="flex items-start justify-between gap-6 cursor-pointer"
-                                        onClick={() => navigate(`/contests/${contest.contestId}`)}
+                                        className="flex items-center gap-4 cursor-pointer group"
+                                        onClick={() => navigate(action.path)}
                                     >
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <h3 className="text-gray-900 dark:text-white font-semibold">
-                                                    {contest.contestName}
-                                                </h3>
-                                                {getContestStatusBadge(contest.state)}
-                                            </div>
-                                            <div className="flex items-center gap-8 text-sm text-gray-500 dark:text-gray-400">
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="w-4 h-4" />
-                                                    <span>{formatDate(contest.startTime)}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Users className="w-4 h-4" />
-                                                    <span>
-                                                        {contest.participantCount} người tham gia
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Trophy className="w-4 h-4" />
-                                                    <span>{contest.problemCount} bài tập</span>
-                                                </div>
-                                            </div>
+                                        <div
+                                            className={`w-14 h-14 bg-linear-to-br ${action.color} rounded-xl flex items-center justify-center shadow-lg flex-shrink-0`}
+                                        >
+                                            <Icon className="w-7 h-7 text-white" />
                                         </div>
-                                        <ChevronRight className="w-6 h-6 text-gray-500 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-(--text-primary) font-semibold group-hover:text-red-500 transition-colors">
+                                                {action.title}
+                                            </h3>
+                                            <p className="text-(--text-secondary) text-sm mt-0.5">
+                                                {action.description}
+                                            </p>
+                                        </div>
+                                        <ArrowRight className="w-5 h-5 text-(--text-secondary) group-hover:translate-x-1 transition-transform flex-shrink-0" />
                                     </div>
                                 </CardBody>
                             </Card>
-                        ))
-                    )}
+                        );
+                    })}
                 </div>
-            </div>
-
-            {/* Practice Problems */}
-            <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-gray-900 dark:text-white text-xl font-bold">
-                        Bài tập luyện tập
-                    </h2>
-                    <div className="flex items-center gap-2">
-                        <select
-                            value={difficultyFilter}
-                            onChange={(e) => setDifficultyFilter(e.target.value)}
-                            className="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium shadow-sm hover:border-gray-400 transition-all cursor-pointer"
-                        >
-                            <option value="all">Tất cả độ khó</option>
-                            <option value="EASY">Dễ</option>
-                            <option value="MEDIUM">Trung bình</option>
-                            <option value="HARD">Khó</option>
-                        </select>
-                    </div>
-                </div>
-
-                <Card>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                                    <th className="px-4 py-2 text-left text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold tracking-wider">
-                                        Tiêu đề
-                                    </th>
-                                    <th className="px-4 py-2 text-left text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold tracking-wider">
-                                        Độ khó
-                                    </th>
-                                    <th className="px-4 py-2 text-left text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold tracking-wider">
-                                        Điểm tối đa
-                                    </th>
-                                    <th className="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400 uppercase font-semibold tracking-wider">
-                                        Hành động
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredProblems.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={4}
-                                            className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
-                                        >
-                                            Không có bài tập nào.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    filteredProblems.map((problem) => (
-                                        <tr
-                                            key={problem.problemId}
-                                            className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group"
-                                            onClick={() =>
-                                                navigate(`/problems/${problem.problemId}`)
-                                            }
-                                        >
-                                            <td className="px-4 py-3">
-                                                <div className="text-gray-900 dark:text-white font-medium group-hover:text-red-600 transition-colors">
-                                                    {problem.title}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <DifficultyBadge
-                                                    difficulty={
-                                                        problem.difficulty as
-                                                            | "EASY"
-                                                            | "MEDIUM"
-                                                            | "HARD"
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-gray-600 dark:text-gray-400 font-medium">
-                                                    {problem.maxScore}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <Button size="sm" variant="primary">
-                                                    Giải
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
             </div>
         </div>
     );

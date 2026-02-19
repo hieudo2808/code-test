@@ -16,12 +16,15 @@ public class S3StorageService {
 
     private final S3Client s3Client;
     private final String bucketName;
+    private final String region;
 
     public S3StorageService(
             S3Client s3Client,
-            @Value("${aws.s3.bucket}") String bucketName) {
+            @Value("${aws.s3.bucket}") String bucketName,
+            @Value("${aws.s3.region}") String region) {
         this.s3Client = s3Client;
         this.bucketName = bucketName;
+        this.region = region;
     }
 
     public String saveTestcaseInput(UUID problemId, UUID testcaseId, InputStream data, long contentLength) {
@@ -41,6 +44,26 @@ public class S3StorageService {
         byte[] bytes = content.getBytes();
         uploadFile(path, new java.io.ByteArrayInputStream(bytes), bytes.length);
         return path;
+    }
+
+    public String uploadAvatar(UUID userId, String originalFilename, InputStream data, long contentLength, String contentType) {
+        String extension = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        String path = String.format("avatars/%s/avatar%s", userId, extension);
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(path)
+                .contentType(contentType != null ? contentType : "image/jpeg")
+                .acl(ObjectCannedACL.PUBLIC_READ)
+                .build();
+
+        s3Client.putObject(request, RequestBody.fromInputStream(data, contentLength));
+        log.info("Uploaded avatar for user {}: {}", userId, path);
+
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, path);
     }
 
     public InputStream getFile(String path) {

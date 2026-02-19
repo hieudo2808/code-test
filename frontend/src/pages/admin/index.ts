@@ -1,3 +1,4 @@
 export { AdminDashboardPage } from "./DashboardPage";
 export { UserManagementPage } from "./UserManagementPage";
 export { NotificationPage } from "./NotificationPage";
+export { SettingsPage } from "./SettingsPage";
