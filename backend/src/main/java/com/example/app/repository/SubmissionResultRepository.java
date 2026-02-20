@@ -22,6 +22,9 @@ public interface SubmissionResultRepository extends JpaRepository<SubmissionResu
     @Query("SELECT COUNT(r) FROM SubmissionResult r WHERE r.submission.submissionId = :submissionId AND r.verdict IS NULL")
     long countPendingBySubmissionId(@Param("submissionId") UUID submissionId);
 
+    @Query("SELECT COUNT(r) FROM SubmissionResult r WHERE r.submission.submissionId = :submissionId AND r.verdict IS NULL")
+    long countUnfinished(@Param("submissionId") UUID submissionId);
+
     @Query("SELECT r FROM SubmissionResult r JOIN FETCH r.submission s JOIN FETCH r.testcase " +
            "WHERE r.verdict IS NULL AND s.submissionStatus = :status AND s.updateAt < :cutoff")
     List<SubmissionResult> findStaleResults(@Param("status") SubmissionStatus status, @Param("cutoff") OffsetDateTime cutoff);

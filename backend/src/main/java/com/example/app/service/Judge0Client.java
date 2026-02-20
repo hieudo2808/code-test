@@ -41,7 +41,7 @@ public class Judge0Client {
             backoff = @Backoff(delay = 2000, multiplier = 2)
     )
     public String submit(Judge0Request request) {
-        request.setCallbackUrl(callbackUrl);
+        request.setCallbackUrl("http://" + callbackUrl);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -96,7 +96,7 @@ public class Judge0Client {
         if (requests.isEmpty()) return List.of();
 
         // Set callback URL for all requests
-        requests.forEach(r -> r.setCallbackUrl(callbackUrl));
+        requests.forEach(r -> r.setCallbackUrl("http://" + callbackUrl));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

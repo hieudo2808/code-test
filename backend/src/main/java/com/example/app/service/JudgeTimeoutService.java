@@ -3,25 +3,24 @@ package com.example.app.service;
 import com.example.app.dto.judge0.Judge0Response;
 import com.example.app.entity.Problem;
 import com.example.app.entity.SubmissionResult;
+import com.example.app.entity.enums.EvaluationType;
 import com.example.app.entity.enums.SubmissionStatus;
 import com.example.app.entity.enums.Verdict;
 import com.example.app.repository.SubmissionResultRepository;
+import com.example.app.service.submission.ResultProcessor;
+import com.example.app.service.submission.event.JudgeResultReceivedEvent;
+import com.example.app.service.submission.event.ScoringRequiredEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Scheduled service that recovers submissions with lost Judge0 callbacks.
- * Polls Judge0 directly for stale results and updates them.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,17 +28,16 @@ public class JudgeTimeoutService {
 
     private final SubmissionResultRepository resultRepository;
     private final Judge0Client judge0Client;
-    private final JudgeService judgeService;
+    private final S3StorageService storageService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Runs every 15 seconds. Finds SubmissionResult rows where verdict is still NULL
-     * and the parent Submission has been in RUNNING status for > 60 seconds.
-     * For each stale result, polls Judge0 directly to recover the result.
-     */
+    private static final int HARD_CUTOFF_SECONDS = 300;
+
     @Scheduled(fixedDelay = 15000)
     @Transactional
     public void recoverStaleResults() {
         OffsetDateTime cutoff = OffsetDateTime.now().minusSeconds(60);
+        OffsetDateTime hardCutoff = OffsetDateTime.now().minusSeconds(HARD_CUTOFF_SECONDS);
         List<SubmissionResult> staleResults = resultRepository.findStaleResults(SubmissionStatus.RUNNING, cutoff);
 
         if (staleResults.isEmpty()) return;
@@ -50,68 +48,110 @@ public class JudgeTimeoutService {
                 .map(r -> r.getSubmission().getSubmissionId())
                 .collect(Collectors.toSet());
 
+        // Track results that need HEURISTIC scoring instead of direct aggregation
+        List<SubmissionResult> needsScoring = new ArrayList<>();
+
         for (SubmissionResult result : staleResults) {
             try {
-                recoverSingleResult(result);
+                boolean expired = result.getSubmission().getUpdateAt() != null
+                        && result.getSubmission().getUpdateAt().isBefore(hardCutoff);
+
+                if (expired) {
+                    log.warn("Token {} exceeded hard cutoff ({}s), marking RUNTIME_ERROR",
+                            result.getJudge0Token(), HARD_CUTOFF_SECONDS);
+                    result.setVerdict(Verdict.RUNTIME_ERROR);
+                    result.setScore(0.0);
+                    result.setErrorMessage("Judge0 submission timed out (no result after " + HARD_CUTOFF_SECONDS + "s)");
+                    resultRepository.save(result);
+                    continue;
+                }
+
+                boolean recovered = recoverSingleResult(result);
+                if (recovered && needsHeuristicScoring(result)) {
+                    needsScoring.add(result);
+                }
             } catch (Exception e) {
                 log.warn("Failed to recover stale result for token: {}", result.getJudge0Token(), e);
-                // If we can't reach Judge0 at all, mark as RUNTIME_ERROR to unstick
-                result.setVerdict(Verdict.RUNTIME_ERROR);
-                result.setScore(0.0);
-                result.setErrorMessage("Judge0 callback lost and recovery failed");
-                resultRepository.save(result);
+                if (result.getVerdict() == null) {
+                    result.setVerdict(Verdict.RUNTIME_ERROR);
+                    result.setScore(0.0);
+                    result.setErrorMessage("Judge0 callback lost and recovery failed");
+                    resultRepository.save(result);
+                }
             }
         }
 
-        // Re-check aggregation for all affected submissions
+        // Publish scoring events for HEURISTIC+ACCEPTED results
+        for (SubmissionResult result : needsScoring) {
+            try {
+                eventPublisher.publishEvent(new ScoringRequiredEvent(
+                        result.getSubmission().getSubmissionId(),
+                        result.getSubmissionResultId()));
+            } catch (Exception e) {
+                log.error("Failed to publish scoring event for result: {}", result.getSubmissionResultId(), e);
+            }
+        }
+
+        // Publish aggregation events for all affected submissions
         for (UUID submissionId : affectedSubmissions) {
             try {
-                judgeService.aggregateIfComplete(submissionId);
+                eventPublisher.publishEvent(new JudgeResultReceivedEvent(submissionId));
             } catch (Exception e) {
-                log.error("Failed to aggregate submission: {}", submissionId, e);
+                log.error("Failed to publish aggregation event for submission: {}", submissionId, e);
             }
         }
     }
 
-    private void recoverSingleResult(SubmissionResult result) {
+    /**
+     * @return true if the result was recovered (got a final status from Judge0)
+     */
+    private boolean recoverSingleResult(SubmissionResult result) {
+        if (result.getVerdict() != null) return false;
+
         String token = result.getJudge0Token();
         if (token == null) {
-            // No token means the submit to Judge0 never succeeded — mark as error
             result.setVerdict(Verdict.RUNTIME_ERROR);
             result.setScore(0.0);
             result.setErrorMessage("Judge0 submission token missing");
             resultRepository.save(result);
-            return;
+            return true;
         }
 
         log.debug("Polling Judge0 for stale token: {}", token);
         Judge0Response response = judge0Client.getSubmission(token);
 
         if (response == null || response.getStatus() == null) {
-            // Judge0 has no record — mark as error
             result.setVerdict(Verdict.RUNTIME_ERROR);
             result.setScore(0.0);
             result.setErrorMessage("Judge0 has no record for this submission");
             resultRepository.save(result);
-            return;
+            return true;
         }
 
         int statusId = response.getStatus().getId();
 
         if (statusId <= 2) {
-            // Still in queue or processing at Judge0 — skip for now, will retry next cycle
             log.debug("Token {} still processing at Judge0 (status={}), will retry", token, statusId);
-            return;
+            return false;
         }
 
-        // Judge0 has a final result — apply it
-        Verdict verdict = judgeService.mapVerdict(statusId);
+        // Save user output to S3 (same as ResultProcessor.processCallback)
+        try {
+            String stdout = response.getStdout() != null ? response.getStdout() : "";
+            storageService.saveSubmissionOutput(
+                    result.getSubmission().getSubmissionId(),
+                    result.getTestcase().getTestcaseId(),
+                    stdout);
+        } catch (Exception ex) {
+            log.warn("Failed to save recovered output to S3 for token={}", token, ex);
+        }
+
+        Verdict verdict = ResultProcessor.mapVerdict(statusId);
         if (verdict == null) verdict = Verdict.RUNTIME_ERROR;
 
         result.setTimeMs(response.getTime() != null ? response.getTime() * 1000 : null);
         result.setMemoryKb(response.getMemory() != null ? response.getMemory().doubleValue() : null);
 
-        // Double-check resource limits even if Judge0 says Accepted
         if (verdict == Verdict.ACCEPTED) {
             Problem problem = result.getSubmission().getProblem();
 
@@ -148,5 +188,11 @@ public class JudgeTimeoutService {
 
         resultRepository.save(result);
         log.info("Recovered stale result for token: {}, verdict: {}", token, verdict);
+        return true;
+    }
+
+    private boolean needsHeuristicScoring(SubmissionResult result) {
+        return result.getVerdict() == Verdict.ACCEPTED
+                && result.getSubmission().getProblem().getEvaluationType() == EvaluationType.HEURISTIC;
     }
 }

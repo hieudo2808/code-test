@@ -35,4 +35,26 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean(name = "scorerExecutor")
+    public Executor scorerExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(3);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("Scorer-");
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean(name = "ioExecutor")
+    public Executor ioExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(15);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("IO-");
+        executor.initialize();
+        return executor;
+    }
 }

@@ -3,9 +3,11 @@ package com.example.app.repository;
 import com.example.app.entity.Submission;
 import com.example.app.entity.enums.SubmissionStatus;
 import com.example.app.entity.enums.Verdict;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -16,6 +18,10 @@ import java.util.UUID;
 
 @Repository
 public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Submission s WHERE s.submissionId = :id")
+    Optional<Submission> findForUpdate(@Param("id") UUID id);
 
     Page<Submission> findBySubmitterUserId(UUID submitterId, Pageable pageable);
 

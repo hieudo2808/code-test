@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,8 +30,8 @@ public class OutputGeneratorService {
     private final TestcaseRepository testcaseRepository;
 
     /**
-     * Generate expected outputs for all testcases of a problem by running the solution code.
-     * This is used when instructor provides inputs + solution code instead of inputs + outputs.
+     * Generate expected outputs for all testcases by running the solution code.
+     * Uses batch submit + polling instead of sequential submitSync to avoid blocking.
      */
     @Transactional
     public int generateOutputs(UUID problemId) {
@@ -42,58 +43,108 @@ public class OutputGeneratorService {
         }
 
         List<Testcase> testcases = testcaseRepository.findByProblemProblemId(problemId);
-        int generatedCount = 0;
+        if (testcases.isEmpty()) return 0;
 
+        double cpuTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 10.0;
+        double wallTimeLimit = cpuTimeLimit * 2;
+        int memoryLimit = problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000;
+
+        // Build all requests in one go
+        List<Judge0Request> requests = new ArrayList<>();
         for (Testcase tc : testcases) {
+            String input = readFile(tc.getInputPath());
+            requests.add(Judge0Request.builder()
+                    .languageId(problem.getSolutionLanguageId())
+                    .sourceCode(problem.getSolutionCode())
+                    .stdin(input)
+                    .cpuTimeLimit(cpuTimeLimit)
+                    .wallTimeLimit(wallTimeLimit)
+                    .memoryLimit(memoryLimit)
+                    .build());
+        }
+
+        // Submit all at once — no blocking per testcase
+        log.info("Submitting batch of {} testcases to Judge0 for problem: {}", testcases.size(), problemId);
+        List<String> tokens = judge0Client.submitBatch(requests);
+
+        // Poll until all are done (max 300 seconds — Judge0 can be slow under load)
+        List<Judge0Response> results = pollUntilDone(tokens, 300);
+
+        // Save outputs
+        int generatedCount = 0;
+        for (int i = 0; i < testcases.size(); i++) {
+            Testcase tc = testcases.get(i);
+            Judge0Response response = i < results.size() ? results.get(i) : null;
+
+            if (response == null || response.getStatus() == null || response.getStatus().getId() != 3) {
+                log.error("Solution failed for testcase {}: status={}", tc.getTestcaseId(),
+                        response != null && response.getStatus() != null
+                                ? response.getStatus().getDescription() : "null/timeout");
+                continue;
+            }
+
+            String output = response.getStdout() != null ? response.getStdout() : "";
+            byte[] outputBytes = output.getBytes(StandardCharsets.UTF_8);
+
+            String outputPath = storageService.saveTestcaseOutput(
+                    problem.getProblemId(),
+                    tc.getTestcaseId(),
+                    new ByteArrayInputStream(outputBytes),
+                    outputBytes.length
+            );
+
+            tc.setOutputPath(outputPath);
+            tc.setOutputSizeKb((int) Math.ceil(outputBytes.length / 1024.0));
+            testcaseRepository.save(tc);
+
+            generatedCount++;
+            log.info("Generated output for testcase: {}", tc.getTestcaseId());
+        }
+
+        log.info("Generated {}/{} outputs for problem: {}", generatedCount, testcases.size(), problemId);
+        return generatedCount;
+    }
+
+    /**
+     * Poll Judge0 for all tokens until all are done or timeout expires.
+     */
+    private List<Judge0Response> pollUntilDone(List<String> tokens, int maxSeconds) {
+        List<Judge0Response> results = new ArrayList<>();
+        for (int i = 0; i < tokens.size(); i++) results.add(null);
+
+        boolean[] done = new boolean[tokens.size()];
+        int pending = tokens.size();
+        long deadline = System.currentTimeMillis() + maxSeconds * 1000L;
+
+        while (pending > 0 && System.currentTimeMillis() < deadline) {
             try {
-                // Read input
-                String input = readFile(tc.getInputPath());
+                Thread.sleep(1500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
 
-                // Run solution code
-                Judge0Request request = Judge0Request.builder()
-                        .languageId(problem.getSolutionLanguageId())
-                        .sourceCode(problem.getSolutionCode())
-                        .stdin(input)
-                        .cpuTimeLimit(problem.getTimeLimit() != null ? problem.getTimeLimit() : 10.0)
-                        .memoryLimit(problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000)
-                        .build();
-
-                Judge0Response response = judge0Client.submitSync(request, 60);
-
-                // Check if solution ran successfully
-                if (response.getStatus() == null || response.getStatus().getId() != 3) {
-                    log.error("Solution failed for testcase {}: status={}", 
-                            tc.getTestcaseId(), 
-                            response.getStatus() != null ? response.getStatus().getDescription() : "unknown");
-                    continue;
+            for (int i = 0; i < tokens.size(); i++) {
+                if (done[i]) continue;
+                try {
+                    Judge0Response resp = judge0Client.getSubmission(tokens.get(i));
+                    // status id > 2 means finished (3=AC, 4=WA, 5=TLE, 6=CE, ...)
+                    if (resp != null && resp.getStatus() != null && resp.getStatus().getId() > 2) {
+                        results.set(i, resp);
+                        done[i] = true;
+                        pending--;
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to poll token {}: {}", tokens.get(i), e.getMessage());
                 }
-
-                String output = response.getStdout() != null ? response.getStdout() : "";
-
-                // Save output to storage using saveTestcaseOutput
-                byte[] outputBytes = output.getBytes(StandardCharsets.UTF_8);
-                String outputPath = storageService.saveTestcaseOutput(
-                        problem.getProblemId(),
-                        tc.getTestcaseId(),
-                        new ByteArrayInputStream(outputBytes),
-                        outputBytes.length
-                );
-
-                // Update testcase with new output path and size
-                tc.setOutputPath(outputPath);
-                tc.setOutputSizeKb((int) Math.ceil(outputBytes.length / 1024.0));
-                testcaseRepository.save(tc);
-
-                generatedCount++;
-                log.info("Generated output for testcase: {}", tc.getTestcaseId());
-
-            } catch (Exception e) {
-                log.error("Failed to generate output for testcase: {}", tc.getTestcaseId(), e);
             }
         }
 
-        log.info("Generated {} outputs for problem: {}", generatedCount, problemId);
-        return generatedCount;
+        if (pending > 0) {
+            log.warn("{}/{} testcases timed out after {}s", pending, tokens.size(), maxSeconds);
+        }
+
+        return results;
     }
 
     private String readFile(String path) {
@@ -106,4 +157,3 @@ public class OutputGeneratorService {
         }
     }
 }
-

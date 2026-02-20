@@ -8,7 +8,6 @@ import com.example.app.entity.Problem;
 import com.example.app.entity.Submission;
 import com.example.app.entity.SubmissionResult;
 import com.example.app.entity.Users;
-import com.example.app.entity.enums.EvaluationType;
 import com.example.app.entity.enums.SubmissionStatus;
 import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
@@ -19,8 +18,11 @@ import com.example.app.repository.SubmissionRepository;
 import com.example.app.repository.SubmissionResultRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.security.SecurityHelper;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import com.example.app.service.submission.event.SubmissionCreatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,11 +45,11 @@ public class SubmissionService {
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
     private final ContestRepository contestRepository;
-    private final JudgeService judgeService;
     private final ContestService contestService;
     private final S3StorageService storageService;
     private final SubmissionMapper submissionMapper;
     private final SecurityHelper securityHelper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     @PreAuthorize("hasAuthority('SUBMISSION_CREATE')")
@@ -89,8 +91,14 @@ public class SubmissionService {
         log.info("Created submission: {} for problem: {} by user: {}", 
                 submission.getSubmissionId(), problem.getSlug(), currentUserId);
 
-        // Trigger async judging based on evaluation type
-        triggerJudge(submission, problem.getEvaluationType());
+        // Publish event after transaction commits
+        final UUID submissionId = submission.getSubmissionId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eventPublisher.publishEvent(new SubmissionCreatedEvent(submissionId));
+            }
+        });
 
         return submissionMapper.toResponse(submission);
     }
@@ -100,7 +108,6 @@ public class SubmissionService {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
 
-        // Check ownership
         boolean canViewAll = securityHelper.hasAuthority("SUBMISSION_READ_ALL");
         boolean isOwner = isSubmissionOwner(submission);
 
@@ -189,8 +196,13 @@ public class SubmissionService {
 
         log.info("Rejudging submission: {}", submissionId);
 
-        // Trigger judging
-        triggerJudge(submission, submission.getProblem().getEvaluationType());
+        // Publish event after transaction commits
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eventPublisher.publishEvent(new SubmissionCreatedEvent(submissionId));
+            }
+        });
 
         return submissionMapper.toResponse(submission);
     }
@@ -207,22 +219,18 @@ public class SubmissionService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Find the submission result for this testcase
         SubmissionResult result = resultRepository.findBySubmissionSubmissionId(submissionId).stream()
                 .filter(r -> r.getTestcase().getTestcaseId().equals(testcaseId))
                 .findFirst()
                 .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
 
-        // Hidden testcase: only admins/instructors can view detail
         if (result.getTestcase().getIsHidden() && !canViewAll) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Read input and expected output from S3
         String input = readFromS3(result.getTestcase().getInputPath());
         String expectedOutput = readFromS3(result.getTestcase().getOutputPath());
 
-        // Read user output from S3
         String userOutputPath = String.format("submissions/%s/results/%s/output.txt",
                 submissionId, testcaseId);
         String actualOutput = readFromS3(userOutputPath);
@@ -238,8 +246,11 @@ public class SubmissionService {
         try {
             byte[] bytes = storageService.getFile(path).readAllBytes();
             String content = new String(bytes).trim();
-            // Try Base64 decode (old submissions may have stored Base64-encoded output)
             return tryDecodeBase64(content);
+        } catch (NoSuchKeyException e) {
+            // Expected: file doesn't exist yet (e.g. not judged, or output not saved)
+            log.debug("S3 file not found (expected): {}", path);
+            return "";
         } catch (Exception e) {
             log.warn("Failed to read file from S3: {}", path, e);
             return "";
@@ -249,30 +260,12 @@ public class SubmissionService {
     private String tryDecodeBase64(String value) {
         if (value == null || value.isEmpty()) return value;
         try {
-            // Only attempt decode if it looks like Base64 (no spaces, no newlines in first line)
             if (!value.contains(" ") && !value.contains("\n") && value.matches("^[A-Za-z0-9+/=]+$")) {
                 return new String(Base64.getDecoder().decode(value));
             }
         } catch (IllegalArgumentException ignored) {
         }
         return value;
-    }
-
-    private void triggerJudge(Submission submission, EvaluationType evalType) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    switch (evalType) {
-                        case EXACT -> judgeService.judgeExact(submission);
-                        case HEURISTIC -> judgeService.judgeHeuristic(submission);
-                        case MANUAL -> judgeService.markForManualReview(submission);
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to trigger judge after commit", e);
-                }
-            }
-        });
     }
 
     private boolean isSubmissionOwner(Submission submission) {
