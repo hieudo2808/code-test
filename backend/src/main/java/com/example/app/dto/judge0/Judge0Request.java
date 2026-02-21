@@ -28,6 +28,9 @@ public class Judge0Request {
     @JsonProperty("memory_limit")
     private Integer memoryLimit;
 
+    @JsonProperty("compiler_options")
+    private String compilerOptions;
+
     @JsonProperty("redirect_stderr_to_stdout")
     private Boolean redirectStderrToStdout;
 

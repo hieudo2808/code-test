@@ -8,10 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Handles MANUAL-mode submissions.
- * No Judge0 interaction — just set NEED_REVIEW and done.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

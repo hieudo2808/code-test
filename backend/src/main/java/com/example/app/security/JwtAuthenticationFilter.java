@@ -1,6 +1,7 @@
 package com.example.app.security;
 
 import com.example.app.service.TokenBlacklistService;
+import io.jsonwebtoken.Claims;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -61,6 +62,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     this.userDetailsService.loadUserByUsername(username);
 
             if (jwtUtil.validateToken(jwt, userDetails)) {
+                String tokenType = jwtUtil.extractClaim(jwt, c -> c.get("tokenType", String.class));
+                if ("REFRESH".equals(tokenType)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 String jti = jwtUtil.extractJti(jwt);
                 if (tokenBlacklistService.isBlacklisted(jti)) {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

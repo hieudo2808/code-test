@@ -29,7 +29,10 @@ public class ProblemResponse {
     OffsetDateTime createAt;
     OffsetDateTime updateAt;
     
-    // Creator info
+    String solutionCode;
+    Integer solutionLanguageId;
+    String scorerCode;
+    Integer scorerLanguageId;
     UUID creatorId;
     String creatorName;
     

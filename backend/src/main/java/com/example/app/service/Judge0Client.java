@@ -41,7 +41,7 @@ public class Judge0Client {
             backoff = @Backoff(delay = 2000, multiplier = 2)
     )
     public String submit(Judge0Request request) {
-        request.setCallbackUrl("http://" + callbackUrl);
+        request.setCallbackUrl(callbackUrl);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -50,9 +50,6 @@ public class Judge0Client {
         String jsonBody;
         try {
             jsonBody = objectMapper.writeValueAsString(request);
-            log.info("Judge0 submit: language_id={}, cpu_time_limit={}, wall_time_limit={}, memory_limit={}, redirect_stderr={}",
-                    request.getLanguageId(), request.getCpuTimeLimit(), request.getWallTimeLimit(),
-                    request.getMemoryLimit(), request.getRedirectStderrToStdout());
         } catch (Exception e) {
             log.error("Failed to serialize request", e);
             throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
@@ -110,9 +107,6 @@ public class Judge0Client {
             jsonBody = objectMapper.writeValueAsString(wrapper);
 
             Judge0Request first = requests.get(0);
-            log.info("Judge0 batch submit: {} submissions, language_id={}, cpu_time_limit={}, wall_time_limit={}, memory_limit={}",
-                    requests.size(), first.getLanguageId(), first.getCpuTimeLimit(),
-                    first.getWallTimeLimit(), first.getMemoryLimit());
         } catch (Exception e) {
             log.error("Failed to serialize batch request", e);
             throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
@@ -151,13 +145,16 @@ public class Judge0Client {
     }
 
     /**
-     * Submit code and wait for result synchronously.
-     * Used for heuristic judging where we need output before running scorer.
+     * Submit code and wait for result synchronously using submit + poll.
+     * Used for heuristic judging where we need the output before scoring.
+     *
+     * Judge0's wait=true is unreliable on some setups (returns 201 with null fields),
+     * so we submit normally, then poll GET /submissions/{token} until complete.
      */
     public Judge0Response submitSync(Judge0Request request, int maxWaitSeconds) {
         // Don't use callback for sync submission
         request.setCallbackUrl(null);
-        
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Auth-Token", authToken);
@@ -166,23 +163,60 @@ public class Judge0Client {
         try {
             jsonBody = objectMapper.writeValueAsString(request);
         } catch (Exception e) {
+            log.error("[SUBMIT_SYNC] Failed to serialize request", e);
             throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
         }
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
 
-        // Submit with wait=true parameter
-        ResponseEntity<Judge0Response> response = restTemplate.exchange(
-                baseUrl + "/submissions?base64_encoded=false&wait=true",
+        // Step 1: Submit (without wait=true)
+        ResponseEntity<Judge0Response> submitResponse = restTemplate.exchange(
+                baseUrl + "/submissions?base64_encoded=false",
                 HttpMethod.POST,
                 entity,
                 Judge0Response.class
         );
 
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            return response.getBody();
+        if (!submitResponse.getStatusCode().is2xxSuccessful()
+                || submitResponse.getBody() == null
+                || submitResponse.getBody().getToken() == null) {
+            log.error("[SUBMIT_SYNC] Submit failed: status={}", submitResponse.getStatusCode());
+            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
         }
 
+        String token = submitResponse.getBody().getToken();
+
+        // Step 2: Poll until done or timeout
+        long deadline = System.currentTimeMillis() + (maxWaitSeconds * 1000L);
+        int pollCount = 0;
+
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(1000); // poll every 1 second
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
+            }
+
+            pollCount++;
+            Judge0Response result = getSubmission(token);
+
+            if (result == null || result.getStatus() == null) {
+                log.debug("[SUBMIT_SYNC] Poll #{}: no status yet for token={}", pollCount, token);
+                continue;
+            }
+
+            int statusId = result.getStatus().getId();
+
+            // statusId 1 = In Queue, 2 = Processing → keep polling
+            if (statusId <= 2) {
+                continue;
+            }
+
+            return result;
+        }
+
+        log.error("[SUBMIT_SYNC] Timeout after {}s polling token={} ({} polls)", maxWaitSeconds, token, pollCount);
         throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
     }
 
@@ -193,7 +227,7 @@ public class Judge0Client {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         ResponseEntity<Judge0Response> response = restTemplate.exchange(
-                baseUrl + "/submissions/" + token + "?base64_encoded=false",
+                baseUrl + "/submissions/" + token + "?base64_encoded=true",
                 HttpMethod.GET,
                 entity,
                 Judge0Response.class

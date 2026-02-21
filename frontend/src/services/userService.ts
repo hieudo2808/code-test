@@ -32,7 +32,7 @@ export const userService = {
         return response.data.result;
     },
 
-    async updateUser(id: string, data: Partial<UserResponse>): Promise<UserResponse> {
+    async updateUser(id: string, data: AdminUpdateUserRequest): Promise<UserResponse> {
         const response = await api.put(`/users/${id}`, data);
         return response.data.result;
     },
@@ -59,6 +59,11 @@ export const userService = {
         return response.data.result;
     },
 };
+
+export interface AdminUpdateUserRequest {
+    roleName: "STUDENT" | "INSTRUCTOR" | "ADMIN";
+    isActive: boolean;
+}
 
 export interface UpdateProfileRequest {
     fullName?: string;

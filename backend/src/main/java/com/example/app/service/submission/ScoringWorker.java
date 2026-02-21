@@ -12,7 +12,9 @@ import com.example.app.service.submission.event.ScoringRequiredEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,12 +41,12 @@ public class ScoringWorker {
     private final ApplicationEventPublisher eventPublisher;
 
     @Async("scorerExecutor")
-    @EventListener
-    @Transactional
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleScoringRequired(ScoringRequiredEvent event) {
         SubmissionResult result = resultRepository.findById(event.submissionResultId()).orElse(null);
         if (result == null) {
-            log.warn("SubmissionResult not found for scoring: {}", event.submissionResultId());
+            log.warn("[SCORER] SubmissionResult not found for scoring: {}", event.submissionResultId());
             return;
         }
 
@@ -109,7 +111,8 @@ public class ScoringWorker {
             resultRepository.save(result);
 
         } catch (Exception e) {
-            log.error("Scoring failed for submissionResult: {}", event.submissionResultId(), e);
+            log.error("[SCORER] FAILED for submissionId={}, resultId={}: {}",
+                    event.submissionId(), event.submissionResultId(), e.getMessage(), e);
             result.setVerdict(Verdict.FAILED);
             result.setScore(0.0);
             result.setErrorMessage("Scorer execution failed: " + ResultProcessor.truncate(e.getMessage()));

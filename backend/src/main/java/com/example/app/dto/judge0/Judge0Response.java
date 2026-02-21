@@ -30,9 +30,8 @@ public class Judge0Response {
     private static String decodeBase64(String value) {
         if (value == null || value.isEmpty()) return value;
         try {
-            return new String(Base64.getDecoder().decode(value));
+            return new String(Base64.getMimeDecoder().decode(value));
         } catch (IllegalArgumentException e) {
-            // Not Base64 encoded, return as-is
             return value;
         }
     }

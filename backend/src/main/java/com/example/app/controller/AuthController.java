@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +27,9 @@ import java.util.Map;
 public class AuthController {
     private final AuthService authService;
     private static final String REFRESH_TOKEN_COOKIE = "refresh_token";
-    private static final Duration REFRESH_TOKEN_MAX_AGE = Duration.ofDays(7);
+
+    @Value("${jwt.refresh-expiration}")
+    private Long refreshExpirationMs;
 
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(
@@ -103,7 +106,7 @@ public class AuthController {
                 .secure(false) // Set to true in production with HTTPS
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(REFRESH_TOKEN_MAX_AGE)
+                .maxAge(Duration.ofMillis(refreshExpirationMs))
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());

@@ -49,8 +49,9 @@ public class UserServices {
         Roles role = roleRepository.findByRoleName(request.getRoleName())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         user.setRole(role);
+        user.setActive(true);
         
-        String plainPassword = PasswordGenerator.generate(8);
+        String plainPassword = PasswordGenerator.generate(12);
         user.setHashPassword(passwordEncoder.encode(plainPassword));
         
         Users savedUser = userRepository.save(user);

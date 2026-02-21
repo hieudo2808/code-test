@@ -2,6 +2,7 @@ package com.example.app.service.submission;
 
 import com.example.app.entity.Submission;
 import com.example.app.entity.SubmissionResult;
+import com.example.app.entity.enums.EvaluationType;
 import com.example.app.entity.enums.SubmissionStatus;
 import com.example.app.entity.enums.Verdict;
 import com.example.app.repository.SubmissionRepository;
@@ -11,6 +12,8 @@ import com.example.app.service.submission.event.ManualScoredEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,8 +37,8 @@ public class Aggregator {
     private final SubmissionRepository submissionRepository;
     private final SubmissionResultRepository resultRepository;
 
-    @Transactional
-    @EventListener
+    @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onJudgeResult(JudgeResultReceivedEvent event) {
         tryAggregate(event.submissionId());
     }
@@ -52,13 +55,28 @@ public class Aggregator {
         if (submission == null) return;
 
         // Already finalized
-        if (submission.getSubmissionStatus() == SubmissionStatus.DONE) return;
+        if (submission.getSubmissionStatus() == SubmissionStatus.DONE) {
+            log.info("[AGGREGATOR] Skipping submission {}: already DONE", submissionId);
+            return;
+        }
 
         // Check if all results are in
         long remaining = resultRepository.countUnfinished(submissionId);
-        if (remaining > 0) return;
+        if (remaining > 0) {
+            log.info("[AGGREGATOR] Skipping submission {}: {} testcases still have verdict=null", submissionId, remaining);
+            return;
+        }
 
         List<SubmissionResult> results = resultRepository.findBySubmissionSubmissionId(submissionId);
+
+        EvaluationType evalType = submission.getProblem().getEvaluationType();
+        if (evalType == EvaluationType.HEURISTIC) {
+            boolean scoreMissing = results.stream().anyMatch(r -> r.getScore() == null);
+            if (scoreMissing) {
+                log.info("[AGGREGATOR] Skipping submission {}: HEURISTIC scores not ready yet", submissionId);
+                return;
+            }
+        }
 
         // Calculate final score (sum of per-testcase scores)
         double totalScore = results.stream()
@@ -95,7 +113,5 @@ public class Aggregator {
         submission.setPeakMemoryKb(peakMemoryKb);
         submission.setSubmissionStatus(SubmissionStatus.DONE);
         submissionRepository.save(submission);
-
-        log.info("Submission {} completed: verdict={}, score={}", submissionId, finalVerdict, totalScore);
     }
 }

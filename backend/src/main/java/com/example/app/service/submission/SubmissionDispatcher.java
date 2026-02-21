@@ -5,6 +5,7 @@ import com.example.app.entity.Problem;
 import com.example.app.entity.Submission;
 import com.example.app.entity.SubmissionResult;
 import com.example.app.entity.Testcase;
+import com.example.app.entity.enums.EvaluationType;
 import com.example.app.entity.enums.SubmissionStatus;
 import com.example.app.repository.SubmissionRepository;
 import com.example.app.repository.SubmissionResultRepository;
@@ -24,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HeuristicDispatcher {
+public class SubmissionDispatcher {
 
     private final Judge0Client judge0Client;
     private final JudgeRateLimiter rateLimiter;
@@ -40,12 +41,14 @@ public class HeuristicDispatcher {
 
             Problem problem = submission.getProblem();
 
-            // Validate scorer exists
-            if (problem.getScorerCode() == null || problem.getScorerLanguageId() == null) {
-                log.warn("No scorer configured for heuristic problem: {}", problem.getProblemId());
-                submission.setSubmissionStatus(SubmissionStatus.NEED_REVIEW);
-                submissionRepository.save(submission);
-                return;
+            // HEURISTIC requires a scorer
+            if (problem.getEvaluationType() == EvaluationType.HEURISTIC) {
+                if (problem.getScorerCode() == null || problem.getScorerLanguageId() == null) {
+                    log.warn("No scorer configured for heuristic problem: {}", problem.getProblemId());
+                    submission.setSubmissionStatus(SubmissionStatus.NEED_REVIEW);
+                    submissionRepository.save(submission);
+                    return;
+                }
             }
 
             submission.setSubmissionStatus(SubmissionStatus.COMPILING);
@@ -59,10 +62,16 @@ public class HeuristicDispatcher {
                     .toList();
             CompletableFuture.allOf(inputFutures.toArray(new CompletableFuture[0])).join();
 
-            // Build batch requests — same as EXACT mode (user code execution)
+            // Build batch requests
             Double cpuTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0;
-            Double wallTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() * 2 : 10.0;
+            Double wallTimeLimit = Math.max(1.0, problem.getTimeLimit() != null ? problem.getTimeLimit() * 2 : 10.0);
             Integer memoryLimit = problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000;
+
+            String compilerOptions = null;
+            Integer langId = submission.getLanguageId();
+            if (langId == 50 || langId == 54) {
+                compilerOptions = "-O2 -Wall -lm";
+            }
 
             List<Judge0Request> batchRequests = new ArrayList<>();
             for (int i = 0; i < testcases.size(); i++) {
@@ -75,10 +84,11 @@ public class HeuristicDispatcher {
                         .wallTimeLimit(wallTimeLimit)
                         .memoryLimit(memoryLimit)
                         .redirectStderrToStdout(true)
+                        .compilerOptions(compilerOptions)
                         .build());
             }
 
-            // Submit user code via batch API (async with callbacks)
+            // Submit via batch API
             List<String> tokens = judge0Client.submitBatch(batchRequests);
 
             // Save pending results with tokens
@@ -95,7 +105,7 @@ public class HeuristicDispatcher {
             submissionRepository.save(submission);
 
         } catch (Exception e) {
-            log.error("HeuristicDispatcher failed for submission: {}", submission.getSubmissionId(), e);
+            log.error("Dispatch failed for submission: {}", submission.getSubmissionId(), e);
             submission.setSubmissionStatus(SubmissionStatus.ERROR);
             submissionRepository.save(submission);
         } finally {

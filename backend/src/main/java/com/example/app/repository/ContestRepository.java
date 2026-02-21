@@ -14,9 +14,6 @@ import java.util.UUID;
 
 @Repository
 public interface ContestRepository extends JpaRepository<Contest, UUID> {
-
-    Page<Contest> findByIsPublicTrue(Pageable pageable);
-
     @Query("SELECT c FROM Contest c WHERE c.isPublic = true OR c.contestOwner.userId = :userId")
     Page<Contest> findAccessibleContests(@Param("userId") UUID userId, Pageable pageable);
 

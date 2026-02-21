@@ -4,8 +4,12 @@ import { Button } from "~/components/ui/button";
 import { Input, Select } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/Modal";
-import { ArrowLeft, Plus, Search, Edit, Trash2, UserCheck, UserX, Loader2 } from "lucide-react";
-import { userService, type UserResponse } from "~/services/userService";
+import { ArrowLeft, Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
+import {
+    userService,
+    type UserResponse,
+    type AdminUpdateUserRequest,
+} from "~/services/userService";
 import { UserRole } from "~/services/authService";
 
 interface UserManagementProps {
@@ -19,6 +23,10 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
     const [roleFilter, setRoleFilter] = useState<string>("all");
     const [createUserModal, setCreateUserModal] = useState(false);
     const [editUserModal, setEditUserModal] = useState<UserResponse | null>(null);
+    const [editForm, setEditForm] = useState<AdminUpdateUserRequest>({
+        roleName: "STUDENT",
+        isActive: true,
+    });
     const [deleteUserModal, setDeleteUserModal] = useState<UserResponse | null>(null);
 
     // New user form
@@ -72,16 +80,25 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
         }
     };
 
+    const openEditModal = (user: UserResponse) => {
+        setEditUserModal(user);
+        setEditForm({
+            roleName: user.roleName as AdminUpdateUserRequest["roleName"],
+            isActive: user.isActive,
+        });
+    };
+
     const handleUpdateUser = async () => {
         if (!editUserModal) return;
         try {
-            await userService.updateUser(editUserModal.userId, editUserModal);
+            await userService.updateUser(editUserModal.userId, editForm);
             const data = await userService.getUsers();
             setUsers(data);
+            setEditUserModal(null);
         } catch (error) {
             console.error("Error updating user:", error);
+            alert("Failed to update user. Please try again.");
         }
-        setEditUserModal(null);
     };
 
     const handleDeleteUser = async () => {
@@ -259,7 +276,7 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={() => setEditUserModal(user)}
+                                                onClick={() => openEditModal(user)}
                                             >
                                                 <Edit className="w-4 h-4" />
                                             </Button>
@@ -329,6 +346,77 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                     />
                 </div>
             </Modal>
+
+            {/* Edit User Modal */}
+            {editUserModal && (
+                <Modal
+                    isOpen={true}
+                    onClose={() => setEditUserModal(null)}
+                    title="Edit User"
+                    footer={
+                        <>
+                            <Button variant="outline" onClick={() => setEditUserModal(null)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleUpdateUser}>Save Changes</Button>
+                        </>
+                    }
+                >
+                    <div className="space-y-4">
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">User</p>
+                            <p className="text-gray-900 dark:text-white font-medium">
+                                {editUserModal.fullName}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {editUserModal.email}
+                            </p>
+                        </div>
+                        <Select
+                            label="Role"
+                            value={editForm.roleName}
+                            onChange={(e) =>
+                                setEditForm({
+                                    ...editForm,
+                                    roleName: e.target.value as AdminUpdateUserRequest["roleName"],
+                                })
+                            }
+                            options={[
+                                { value: "STUDENT", label: "Student" },
+                                { value: "INSTRUCTOR", label: "Instructor" },
+                                { value: "ADMIN", label: "Admin" },
+                            ]}
+                        />
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                    Account Active
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Disabled accounts cannot log in
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setEditForm({ ...editForm, isActive: !editForm.isActive })
+                                }
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    editForm.isActive
+                                        ? "bg-green-500"
+                                        : "bg-gray-300 dark:bg-gray-600"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        editForm.isActive ? "translate-x-6" : "translate-x-1"
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
 
             {/* Delete User Modal */}
             {deleteUserModal && (

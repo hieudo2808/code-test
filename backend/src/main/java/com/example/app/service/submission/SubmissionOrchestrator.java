@@ -24,8 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubmissionOrchestrator {
 
     private final SubmissionRepository submissionRepository;
-    private final ExactDispatcher exactDispatcher;
-    private final HeuristicDispatcher heuristicDispatcher;
+    private final SubmissionDispatcher submissionDispatcher;
     private final ManualDispatcher manualDispatcher;
 
     @Async("judgeExecutor")
@@ -39,8 +38,7 @@ public class SubmissionOrchestrator {
 
         try {
             switch (submission.getProblem().getEvaluationType()) {
-                case EXACT -> exactDispatcher.dispatch(submission);
-                case HEURISTIC -> heuristicDispatcher.dispatch(submission);
+                case EXACT, HEURISTIC -> submissionDispatcher.dispatch(submission);
                 case MANUAL -> manualDispatcher.dispatch(submission);
             }
         } catch (Exception e) {

@@ -17,16 +17,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Handles Judge0 callbacks. Idempotent: skips if verdict already set.
- * After processing, publishes JudgeResultReceivedEvent for aggregation.
- * For heuristic problems with ACCEPTED user-run, publishes ScoringRequiredEvent.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ResultProcessor {
-
     private final SubmissionResultRepository resultRepository;
     private final S3StorageService storageService;
     private final ApplicationEventPublisher eventPublisher;
@@ -41,7 +35,7 @@ public class ResultProcessor {
 
         // Idempotency guard: skip if already processed
         if (result.getVerdict() != null) {
-            log.debug("Skipping duplicate callback for token: {}", payload.getToken());
+            log.info("[CALLBACK] Skipping duplicate callback for token={}, existing verdict={}", payload.getToken(), result.getVerdict());
             return;
         }
 
@@ -83,9 +77,21 @@ public class ResultProcessor {
             }
         }
 
+        EvaluationType evalType = result.getSubmission().getProblem().getEvaluationType();
+
+        // HEURISTIC + ACCEPTED → don't set verdict/score yet, let scorer decide
+        if (evalType == EvaluationType.HEURISTIC && verdict == Verdict.ACCEPTED) {
+            // Only save time/memory — verdict and score stay null for scorer
+            resultRepository.save(result);
+            eventPublisher.publishEvent(new ScoringRequiredEvent(
+                    result.getSubmission().getSubmissionId(),
+                    result.getSubmissionResultId()));
+            return;
+        }
+
+        // All other cases: set verdict and score normally
         result.setVerdict(verdict);
 
-        // Set error message for non-accepted verdicts
         if (verdict != Verdict.ACCEPTED) {
             String errorMsg = payload.getCompile_output();
             if (errorMsg == null) errorMsg = payload.getStderr();
@@ -93,7 +99,6 @@ public class ResultProcessor {
             result.setErrorMessage(truncate(errorMsg));
         }
 
-        // Set score based on verdict
         if (verdict == Verdict.ACCEPTED) {
             result.setScore(result.getTestcase().getTestcasePoint());
         } else {
@@ -101,39 +106,60 @@ public class ResultProcessor {
         }
 
         resultRepository.save(result);
-        log.debug("Processed callback for token: {}, verdict: {}", payload.getToken(), verdict);
 
-        // Check if this is a heuristic problem and user code succeeded → need scoring
-        EvaluationType evalType = result.getSubmission().getProblem().getEvaluationType();
-        if (evalType == EvaluationType.HEURISTIC && verdict == Verdict.ACCEPTED) {
-            eventPublisher.publishEvent(new ScoringRequiredEvent(
-                    result.getSubmission().getSubmissionId(),
-                    result.getSubmissionResultId()));
-        } else {
-            // Trigger aggregation check
-            eventPublisher.publishEvent(new JudgeResultReceivedEvent(
-                    result.getSubmission().getSubmissionId()));
-        }
+        // Trigger aggregation check
+        eventPublisher.publishEvent(new JudgeResultReceivedEvent(
+                result.getSubmission().getSubmissionId()));
     }
 
     /**
      * Process a result recovered by JudgeTimeoutService (same logic, different input source).
      */
     @Transactional
-    public void processRecoveredResult(SubmissionResult result, Verdict verdict,
-                                        Double timeMs, Double memoryKb, String errorMessage) {
-        // Idempotency guard
+    public void processRecoveredResult(
+            SubmissionResult result,
+            Verdict verdict,
+            Double timeMs,
+            Double memoryKb,
+            String errorMessage,
+            String stdout
+    ) {
         if (result.getVerdict() != null) return;
 
-        result.setVerdict(verdict);
+        try {
+            String userStdout = stdout != null ? stdout : "";
+            storageService.saveSubmissionOutput(
+                    result.getSubmission().getSubmissionId(),
+                    result.getTestcase().getTestcaseId(),
+                    userStdout);
+        } catch (Exception ex) {
+            log.warn("Failed to save recovered user output to S3 for result={}", result.getSubmissionResultId(), ex);
+        }
+
         result.setTimeMs(timeMs);
         result.setMemoryKb(memoryKb);
-        result.setErrorMessage(truncate(errorMessage));
+
+        EvaluationType evalType = result.getSubmission().getProblem().getEvaluationType();
+
+        // HEURISTIC + ACCEPTED → don't set verdict/score, let scorer decide
+        if (evalType == EvaluationType.HEURISTIC && verdict == Verdict.ACCEPTED) {
+            resultRepository.save(result);
+            log.debug("HEURISTIC recovered result {}: user code ACCEPTED → forwarding to scorer", result.getSubmissionResultId());
+            eventPublisher.publishEvent(new ScoringRequiredEvent(
+                    result.getSubmission().getSubmissionId(),
+                    result.getSubmissionResultId()));
+            return;
+        }
+
+        // All other cases: set verdict and score normally
+        result.setVerdict(verdict);
 
         if (verdict == Verdict.ACCEPTED) {
             result.setScore(result.getTestcase().getTestcasePoint());
+            result.setErrorMessage(null);
         } else {
             result.setScore(0.0);
+            result.setErrorMessage(truncate(errorMessage));
         }
 
         resultRepository.save(result);
@@ -150,7 +176,6 @@ public class ResultProcessor {
             case 4 -> Verdict.FAILED; // Wrong Answer
             case 5 -> Verdict.TIME_LIMIT;
             case 6 -> Verdict.COMPILE_ERROR;
-            case 7, 8, 9, 10, 11, 12 -> Verdict.RUNTIME_ERROR;
             default -> Verdict.RUNTIME_ERROR;
         };
     }

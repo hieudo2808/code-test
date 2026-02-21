@@ -92,6 +92,17 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refreshAccessToken(String refreshToken) {
+        try {
+            String tokenType = jwtUtil.extractClaim(refreshToken, c -> c.get("tokenType", String.class));
+            if (!"REFRESH".equals(tokenType)) {
+                throw new AppException(ErrorCode.INVALID_TOKEN);
+            }
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
         String tokenHash = hashToken(refreshToken);
 
         RefreshToken storedToken = refreshTokenRepository.findByHashedToken(tokenHash)
@@ -120,7 +131,6 @@ public class AuthService {
                 }
             } catch (Exception e) {
                 log.debug(e.getMessage());
-                log.info("Revoke already");
             }
         }
         
