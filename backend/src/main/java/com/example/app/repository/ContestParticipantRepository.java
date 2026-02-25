@@ -12,7 +12,6 @@ import java.util.UUID;
 
 @Repository
 public interface ContestParticipantRepository extends JpaRepository<ContestParticipant, ContestParticipantId> {
-
     List<ContestParticipant> findByContestContestId(UUID contestId);
 
     boolean existsByContestContestIdAndParticipantUserId(UUID contestId, UUID userId);

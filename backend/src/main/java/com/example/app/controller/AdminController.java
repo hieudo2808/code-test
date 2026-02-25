@@ -15,7 +15,6 @@ import java.util.Map;
 @RequestMapping("/admin")
 @RequiredArgsConstructor
 public class AdminController {
-
     private final AdminService adminService;
 
     @GetMapping("/stats")

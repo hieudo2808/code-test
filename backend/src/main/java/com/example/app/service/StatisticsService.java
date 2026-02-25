@@ -20,7 +20,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class StatisticsService {
-
     private final SubmissionRepository submissionRepository;
     private final ContestParticipantRepository participantRepository;
     private final ProblemRepository problemRepository;

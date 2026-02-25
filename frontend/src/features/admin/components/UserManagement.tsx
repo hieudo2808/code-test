@@ -11,6 +11,7 @@ import {
     type AdminUpdateUserRequest,
 } from "~/services/userService";
 import { UserRole } from "~/services/authService";
+import { toast } from "sonner";
 
 interface UserManagementProps {
     onNavigate: (page: string) => void;
@@ -71,12 +72,12 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
             const data = await userService.getUsers();
             setUsers(data);
 
-            alert("User created successfully! Credentials sent to email.");
+            toast.success("User created successfully! Credentials sent to email.");
             setCreateUserModal(false);
             setNewUser({ name: "", email: "", role: UserRole.STUDENT });
         } catch (error) {
             console.error("Error creating user:", error);
-            alert("Failed to create user. Please try again.");
+            toast.error("Failed to create user. Please try again.");
         }
     };
 
@@ -95,9 +96,10 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
             const data = await userService.getUsers();
             setUsers(data);
             setEditUserModal(null);
+            toast.success("User updated successfully.");
         } catch (error) {
             console.error("Error updating user:", error);
-            alert("Failed to update user. Please try again.");
+            toast.error("Failed to update user. Please try again.");
         }
     };
 

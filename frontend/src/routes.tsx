@@ -27,6 +27,7 @@ import { MyProblemsPage } from "~/pages/instructor/MyProblemsPage";
 import { MyContestsPage } from "~/pages/instructor/MyContestsPage";
 import { ContestManagePage } from "~/pages/instructor/ContestManagePage";
 import { ProblemSubmissionsPage } from "~/pages/instructor/ProblemSubmissionsPage";
+import { InstructorGuidePage } from "~/pages/instructor/InstructorGuidePage";
 
 // Admin Pages
 import { AdminDashboardPage } from "~/pages/admin/DashboardPage";
@@ -76,7 +77,7 @@ export const router = createBrowserRouter([
                 element: <ProblemListPage />,
             },
             {
-                path: "problems/:id",
+                path: "problems/:slug",
                 element: <ProblemDetailPage />,
             },
             {
@@ -150,6 +151,10 @@ export const router = createBrowserRouter([
             {
                 path: "profile",
                 element: <ProfilePage />,
+            },
+            {
+                path: "guide",
+                element: <InstructorGuidePage />,
             },
         ],
     },

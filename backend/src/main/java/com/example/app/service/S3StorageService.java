@@ -7,22 +7,29 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.UUID;
 
 @Slf4j
 @Service
 public class S3StorageService {
-
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final String bucketName;
     private final String region;
 
     public S3StorageService(
             S3Client s3Client,
+            S3Presigner s3Presigner,
             @Value("${aws.s3.bucket}") String bucketName,
             @Value("${aws.s3.region}") String region) {
         this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
         this.bucketName = bucketName;
         this.region = region;
     }
@@ -39,11 +46,10 @@ public class S3StorageService {
         return path;
     }
 
-    public String saveSubmissionOutput(UUID submissionId, UUID testcaseId, String content) {
+    public void saveSubmissionOutput(UUID submissionId, UUID testcaseId, String content) {
         String path = String.format("submissions/%s/results/%s/output.txt", submissionId, testcaseId);
         byte[] bytes = content.getBytes();
         uploadFile(path, new java.io.ByteArrayInputStream(bytes), bytes.length);
-        return path;
     }
 
     public String uploadAvatar(UUID userId, String originalFilename, InputStream data, long contentLength, String contentType) {
@@ -57,13 +63,12 @@ public class S3StorageService {
                 .bucket(bucketName)
                 .key(path)
                 .contentType(contentType != null ? contentType : "image/jpeg")
-                .acl(ObjectCannedACL.PUBLIC_READ)
                 .build();
 
         s3Client.putObject(request, RequestBody.fromInputStream(data, contentLength));
         log.info("Uploaded avatar for user {}: {}", userId, path);
 
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, path);
+        return path; 
     }
 
     public InputStream getFile(String path) {
@@ -89,19 +94,33 @@ public class S3StorageService {
         }
     }
 
-    public int getFileSizeKb(String path) {
-        try {
-            HeadObjectRequest request = HeadObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(path)
-                    .build();
-            
-            HeadObjectResponse response = s3Client.headObject(request);
-            return (int) (response.contentLength() / 1024);
-        } catch (Exception e) {
-            log.warn("Failed to get file size from S3: {}", path, e);
-            return 0;
-        }
+    public String generatePresignedGetUrl(String path, Duration duration) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(path)
+                .build();
+
+        GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(duration)
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        return s3Presigner.presignGetObject(getObjectPresignRequest).url().toString();
+    }
+
+    public String generatePresignedPutUrl(String path, String contentType, Duration duration) {
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(path)
+                .contentType(contentType)
+                .build();
+
+        PutObjectPresignRequest putObjectPresignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(duration)
+                .putObjectRequest(putObjectRequest)
+                .build();
+
+        return s3Presigner.presignPutObject(putObjectPresignRequest).url().toString();
     }
 
     private void uploadFile(String path, InputStream data, long contentLength) {

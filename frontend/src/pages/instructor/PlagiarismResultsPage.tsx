@@ -46,13 +46,17 @@ export function PlagiarismResultsPage() {
     };
 
     const handleTriggerCheck = async () => {
+        if (selectedProblem === "all") return;
         try {
             setChecking(true);
-            await plagiarismService.triggerCheck(contestId!);
+            await plagiarismService.triggerCheck(contestId!, selectedProblem);
             // Poll for results after a short delay (async check)
             setTimeout(async () => {
                 try {
-                    const resultsData = await plagiarismService.getResults(contestId!);
+                    const resultsData = await plagiarismService.getResultsByProblem(
+                        contestId!,
+                        selectedProblem
+                    );
                     setResults(resultsData);
                 } catch {
                     // ignore
@@ -81,18 +85,25 @@ export function PlagiarismResultsPage() {
         }
     };
 
-    const getSimilarityColor = (similarity: number) => {
-        const pct = similarity * 100;
-        if (pct >= 90) return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20";
-        if (pct >= 75) return "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20";
-        return "text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20";
+    const getVerdictColor = (verdict?: string) => {
+        if (verdict === "PLAGIARIZED")
+            return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20";
+        if (verdict === "SUSPICIOUS")
+            return "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20";
+        return "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20";
     };
 
-    const getSimilarityBarColor = (similarity: number) => {
-        const pct = similarity * 100;
-        if (pct >= 90) return "bg-red-500";
-        if (pct >= 75) return "bg-orange-500";
-        return "bg-yellow-500";
+    const getVerdictBarColor = (verdict?: string) => {
+        if (verdict === "PLAGIARIZED") return "bg-red-500";
+        if (verdict === "SUSPICIOUS") return "bg-orange-500";
+        return "bg-green-500";
+    };
+
+    const getVerdictLabel = (verdict?: string) => {
+        if (verdict === "PLAGIARIZED") return "Đạo văn";
+        if (verdict === "SUSPICIOUS") return "Đáng ngờ";
+        if (verdict === "CLEAN") return "An toàn";
+        return "Không rõ";
     };
 
     if (loading) {
@@ -134,9 +145,10 @@ export function PlagiarismResultsPage() {
 
                     <button
                         onClick={handleTriggerCheck}
-                        disabled={checking}
+                        disabled={checking || selectedProblem === "all"}
                         className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 disabled:bg-red-300 
-                                   text-white font-semibold rounded-xl transition-colors shadow-md"
+                                   text-white font-semibold rounded-xl transition-colors shadow-md disabled:cursor-not-allowed"
+                        title={selectedProblem === "all" ? "Vui lòng chọn một bài tập trước" : ""}
                     >
                         {checking ? (
                             <>
@@ -217,9 +229,7 @@ export function PlagiarismResultsPage() {
                         <div
                             key={result.checkId}
                             onClick={() =>
-                                navigate(
-                                    `/instructor/plagiarism/${contestId}/${result.checkId}`
-                                )
+                                navigate(`/instructor/plagiarism/${contestId}/${result.checkId}`)
                             }
                             className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-gray-100 dark:border-gray-700/50 
                                        hover:bg-red-50/50 dark:hover:bg-red-900/10 cursor-pointer transition-colors group"
@@ -250,19 +260,52 @@ export function PlagiarismResultsPage() {
                                 </div>
                             </div>
                             <div className="col-span-2 flex items-center gap-3">
-                                <div className="flex-1">
+                                <div className="flex-1 group/tooltip relative">
                                     <div className="flex items-center justify-between mb-1">
                                         <span
-                                            className={`text-sm font-bold px-2 py-0.5 rounded-md ${getSimilarityColor(result.similarity)}`}
+                                            className={`text-xs font-bold px-2 py-0.5 rounded-md ${getVerdictColor(result.verdict)}`}
                                         >
+                                            {getVerdictLabel(result.verdict)}
+                                        </span>
+                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
                                             {(result.similarity * 100).toFixed(1)}%
                                         </span>
                                     </div>
-                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
                                         <div
-                                            className={`h-1.5 rounded-full ${getSimilarityBarColor(result.similarity)}`}
+                                            className={`h-1.5 rounded-full ${getVerdictBarColor(result.verdict)}`}
                                             style={{ width: `${result.similarity * 100}%` }}
                                         />
+                                    </div>
+
+                                    {/* Tooltip for detailed scores */}
+                                    <div className="absolute opacity-0 group-hover/tooltip:opacity-100 transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl z-10 pointer-events-none">
+                                        <div className="flex justify-between mb-1">
+                                            <span className="text-gray-400">
+                                                Từ khóa (Lexical):
+                                            </span>
+                                            <span className="font-medium">
+                                                {((result.lexicalScore || 0) * 100).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between mb-1">
+                                            <span className="text-gray-400">Cấu trúc (AST):</span>
+                                            <span className="font-medium">
+                                                {result.astScore
+                                                    ? (result.astScore * 100).toFixed(1) + "%"
+                                                    : "N/A"}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Mạch logic (CFG):</span>
+                                            <span className="font-medium">
+                                                {result.cfgScore
+                                                    ? (result.cfgScore * 100).toFixed(1) + "%"
+                                                    : "N/A"}
+                                            </span>
+                                        </div>
+                                        {/* Tooltip arrow */}
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                                     </div>
                                 </div>
                             </div>
@@ -276,7 +319,11 @@ export function PlagiarismResultsPage() {
                     <div className="px-6 py-3 bg-gray-50 dark:bg-gray-900/50 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-orange-500" />
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Tìm thấy <strong className="text-gray-900 dark:text-white">{results.length}</strong> cặp bài nộp có nghi ngờ đạo văn
+                            Tìm thấy{" "}
+                            <strong className="text-gray-900 dark:text-white">
+                                {results.length}
+                            </strong>{" "}
+                            cặp bài nộp có nghi ngờ đạo văn
                         </span>
                     </div>
                 </div>

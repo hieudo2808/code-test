@@ -10,7 +10,9 @@ import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
 import com.example.app.mapper.ProblemMapper;
 import com.example.app.repository.ProblemRepository;
+import com.example.app.repository.SubmissionRepository;
 import com.example.app.repository.UserRepository;
+import com.example.app.repository.ContestProblemRepository;
 import com.example.app.security.SecurityHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,8 @@ import java.util.UUID;
 public class ProblemService {
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
+    private final SubmissionRepository submissionRepository;
+    private final ContestProblemRepository contestProblemRepository;
     private final ProblemMapper problemMapper;
     private final SecurityHelper securityHelper;
 
@@ -67,7 +71,7 @@ public class ProblemService {
                 .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
 
         // Students can only see public problems
-        if (!problem.getIsPublic() && !canManageProblem(problem)) {
+        if (!problem.getIsPublic() && canManageProblem(problem)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -79,7 +83,7 @@ public class ProblemService {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
 
-        if (!problem.getIsPublic() && !canManageProblem(problem)) {
+        if (!problem.getIsPublic() && canManageProblem(problem)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -88,13 +92,10 @@ public class ProblemService {
 
     @PreAuthorize("hasAuthority('PROBLEM_READ')")
     public Page<ProblemSummaryResponse> getAllProblems(Pageable pageable) {
-        // Check if user can see all problems (instructor/admin) or only public
         if (securityHelper.hasAuthority("PROBLEM_CREATE")) {
-            // Instructor/Admin see all
-            return problemRepository.findAll(pageable).map(problemMapper::toSummary);
+            return problemRepository.findAll(pageable).map(this::toSummaryWithStats);
         } else {
-            // Student sees only public
-            return problemRepository.findByIsPublicTrue(pageable).map(problemMapper::toSummary);
+            return problemRepository.findByIsPublicTrue(pageable).map(this::toSummaryWithStats);
         }
     }
 
@@ -103,10 +104,10 @@ public class ProblemService {
         UUID currentUserId = securityHelper.getCurrentUserId();
         if (keyword != null && !keyword.isBlank()) {
             return problemRepository.searchByCreator(currentUserId, keyword.trim(), pageable)
-                    .map(problemMapper::toSummary);
+                    .map(this::toSummaryWithStats);
         }
         return problemRepository.findByProblemCreatorUserId(currentUserId, pageable)
-                .map(problemMapper::toSummary);
+                .map(this::toSummaryWithStats);
     }
 
     // ==================== UPDATE ====================
@@ -136,10 +137,7 @@ public class ProblemService {
             throw new AppException(ErrorCode.PROBLEM_NOT_FOUND);
         }
 
-        // Check if problem has submissions
-        if (problemRepository.hasSubmissions(problemId)) {
-            throw new AppException(ErrorCode.PROBLEM_HAS_SUBMISSIONS);
-        }
+        contestProblemRepository.deleteAllByProblemProblemId(problemId);
 
         problemRepository.deleteById(problemId);
         log.info("Deleted problem: {}", problemId);
@@ -149,13 +147,24 @@ public class ProblemService {
 
     private boolean canManageProblem(Problem problem) {
         UUID currentUserId = securityHelper.getCurrentUserId();
-        if (currentUserId == null) return false;
+        if (currentUserId == null) return true;
         
         // Admin can manage all
-        if (securityHelper.hasAuthority("USER_MANAGE")) return true;
+        if (securityHelper.hasAuthority("USER_MANAGE")) return false;
         
         // Creator can manage their own
-        return problem.getProblemCreator() != null 
-                && currentUserId.equals(problem.getProblemCreator().getUserId());
+        return problem.getProblemCreator() == null
+                || !currentUserId.equals(problem.getProblemCreator().getUserId());
+    }
+
+    private ProblemSummaryResponse toSummaryWithStats(Problem problem) {
+        ProblemSummaryResponse res = problemMapper.toSummary(problem);
+        long total = submissionRepository.countByProblemProblemId(problem.getProblemId());
+        if (total > 0) {
+            long accepted = submissionRepository.countByProblemProblemIdAndFinalVerdict(
+                    problem.getProblemId(), com.example.app.entity.enums.Verdict.ACCEPTED);
+            res.setAcceptanceRate((double) accepted / total * 100.0);
+        }
+        return res;
     }
 }

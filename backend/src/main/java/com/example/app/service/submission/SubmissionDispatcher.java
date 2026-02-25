@@ -56,13 +56,11 @@ public class SubmissionDispatcher {
 
             List<Testcase> testcases = testcaseRepository.findByProblemProblemId(problem.getProblemId());
 
-            // Pre-fetch all testcase inputs from S3 in parallel
             List<CompletableFuture<String>> inputFutures = testcases.stream()
                     .map(tc -> CompletableFuture.supplyAsync(() -> readFromS3(tc.getInputPath())))
                     .toList();
             CompletableFuture.allOf(inputFutures.toArray(new CompletableFuture[0])).join();
 
-            // Build batch requests
             Double cpuTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0;
             Double wallTimeLimit = Math.max(1.0, problem.getTimeLimit() != null ? problem.getTimeLimit() * 2 : 10.0);
             Integer memoryLimit = problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000;

@@ -39,8 +39,4 @@ public class JudgeRateLimiter {
     public void release() {
         semaphore.release();
     }
-
-    public int availablePermits() {
-        return semaphore.availablePermits();
-    }
 }

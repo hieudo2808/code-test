@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Modal } from "~/components/ui/Modal";
 import { problemService, type ProblemListItem } from "~/services/problemService";
+import { toast } from "sonner";
 
 export function MyProblemsPage() {
     const navigate = useNavigate();
@@ -27,7 +28,11 @@ export function MyProblemsPage() {
     const [totalElements, setTotalElements] = useState(0);
     const [keyword, setKeyword] = useState("");
     const [searchInput, setSearchInput] = useState("");
-    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; id: string; title: string } | null>(null);
+    const [deleteModal, setDeleteModal] = useState<{
+        isOpen: boolean;
+        id: string;
+        title: string;
+    } | null>(null);
 
     const loadProblems = useCallback(async () => {
         try {
@@ -59,11 +64,13 @@ export function MyProblemsPage() {
     const handleDelete = async () => {
         if (!deleteModal) return;
         try {
+            setProblems(problems.filter((p) => p.problemId !== deleteModal.id));
             await problemService.deleteProblem(deleteModal.id);
             loadProblems();
+            toast.success("Đã xóa bài tập.");
         } catch (error) {
             console.error("Failed to delete:", error);
-            alert("Không thể xóa bài tập. Bài tập có thể đã có bài nộp.");
+            toast.error("Không thể xóa bài tập. Bài tập có thể đã có bài nộp.");
         }
         setDeleteModal(null);
     };
@@ -72,7 +79,10 @@ export function MyProblemsPage() {
         <div className="space-y-6">
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <Link to="/instructor" className="hover:text-gray-900 dark:hover:text-white transition-colors">
+                <Link
+                    to="/instructor"
+                    className="hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
                     Dashboard
                 </Link>
                 <ChevronRight className="w-4 h-4" />
@@ -158,7 +168,9 @@ export function MyProblemsPage() {
                                             <span className="font-medium text-gray-900 dark:text-white">
                                                 {problem.title}
                                             </span>
-                                            <p className="text-xs text-gray-400 mt-0.5">{problem.slug}</p>
+                                            <p className="text-xs text-gray-400 mt-0.5">
+                                                {problem.slug}
+                                            </p>
                                         </td>
                                         <td className="px-6 py-4">
                                             <DifficultyBadge difficulty={problem.difficulty} />

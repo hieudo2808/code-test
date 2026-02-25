@@ -2,6 +2,7 @@ package com.example.app.controller;
 
 import com.example.app.dto.ApiResponse;
 import com.example.app.dto.request.contest.AddContestProblemRequest;
+import com.example.app.dto.request.contest.BulkAddParticipantsRequest;
 import com.example.app.dto.request.contest.CreateContestRequest;
 import com.example.app.dto.request.contest.UpdateContestRequest;
 import com.example.app.dto.response.ContestParticipantResponse;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -129,6 +131,16 @@ public class ContestController {
                 .build();
     }
 
+    @PostMapping("/{contestId}/participants/bulk")
+    public ApiResponse<Integer> addParticipants(
+            @PathVariable UUID contestId,
+            @RequestBody BulkAddParticipantsRequest request) {
+        return ApiResponse.<Integer>builder()
+                .message("Participants processed")
+                .result(contestService.addParticipants(contestId, request.getEmails()))
+                .build();
+    }
+
     @DeleteMapping("/{contestId}/participants/{userId}")
     public ApiResponse<Void> removeParticipant(
             @PathVariable UUID contestId,
@@ -148,15 +160,19 @@ public class ContestController {
 
     // ==================== PLAGIARISM ====================
 
-    @PostMapping("/{contestId}/plagiarism-check")
-    public ApiResponse<Void> triggerPlagiarismCheck(@PathVariable UUID contestId) {
-        plagiarismService.runPlagiarismCheck(contestId);
+    @PostMapping("/{contestId}/plagiarism-check/problems/{problemId}")
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
+    public ApiResponse<Void> triggerPlagiarismCheck(
+            @PathVariable UUID contestId,
+            @PathVariable UUID problemId) {
+        plagiarismService.runPlagiarismCheck(contestId, problemId);
         return ApiResponse.<Void>builder()
                 .message("Plagiarism check started. Results will be available shortly.")
                 .build();
     }
 
     @GetMapping("/{contestId}/plagiarism")
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
     public ApiResponse<List<PlagiarismResultResponse>> getPlagiarismResults(@PathVariable UUID contestId) {
         return ApiResponse.<List<PlagiarismResultResponse>>builder()
                 .result(plagiarismService.getResults(contestId))
@@ -164,6 +180,7 @@ public class ContestController {
     }
 
     @GetMapping("/{contestId}/plagiarism/problem/{problemId}")
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
     public ApiResponse<List<PlagiarismResultResponse>> getPlagiarismResultsByProblem(
             @PathVariable UUID contestId,
             @PathVariable UUID problemId) {

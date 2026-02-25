@@ -53,7 +53,9 @@ const VERDICT_LABELS: Record<string, string> = {
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     const [stats, setStats] = useState<SystemStats | null>(null);
     const [weeklyData, setWeeklyData] = useState<SubmissionDayCount[]>([]);
-    const [verdictData, setVerdictData] = useState<{ name: string; value: number; color: string }[]>([]);
+    const [verdictData, setVerdictData] = useState<
+        { name: string; value: number; color: string }[]
+    >([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -150,7 +152,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-(--text-secondary) text-sm">Total Users</p>
-                                <h2 className="text-(--text-primary) mt-1">{stats?.totalUsers ?? 0}</h2>
+                                <h2 className="text-(--text-primary) mt-1">
+                                    {stats?.totalUsers ?? 0}
+                                </h2>
                                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                                     {stats?.activeUsers ?? 0} active
                                 </p>
@@ -167,7 +171,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-(--text-secondary) text-sm">Total Problems</p>
-                                <h2 className="text-(--text-primary) mt-1">{stats?.totalProblems ?? 0}</h2>
+                                <h2 className="text-(--text-primary) mt-1">
+                                    {stats?.totalProblems ?? 0}
+                                </h2>
                                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                                     {stats?.publicProblems ?? 0} public
                                 </p>
@@ -184,7 +190,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-(--text-secondary) text-sm">Contests</p>
-                                <h2 className="text-(--text-primary) mt-1">{stats?.totalContests ?? 0}</h2>
+                                <h2 className="text-(--text-primary) mt-1">
+                                    {stats?.totalContests ?? 0}
+                                </h2>
                                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                                     {stats?.activeContests ?? 0} active
                                 </p>
@@ -201,7 +209,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-(--text-secondary) text-sm">Total Submissions</p>
-                                <h2 className="text-(--text-primary) mt-1">{stats?.totalSubmissions ?? 0}</h2>
+                                <h2 className="text-(--text-primary) mt-1">
+                                    {stats?.totalSubmissions ?? 0}
+                                </h2>
                                 <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                                     {stats?.pendingSubmissions ?? 0} pending
                                 </p>
@@ -224,8 +234,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     <CardBody>
                         <div className="h-72">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={weeklyData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                                <BarChart
+                                    data={weeklyData}
+                                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                                >
+                                    <CartesianGrid
+                                        strokeDasharray="3 3"
+                                        stroke="var(--border-color)"
+                                    />
                                     <XAxis
                                         dataKey="date"
                                         tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
@@ -237,7 +253,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                                         allowDecimals={false}
                                     />
                                     <Tooltip contentStyle={tooltipStyle} />
-                                    <Bar dataKey="count" name="Submissions" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                    <Bar
+                                        dataKey="count"
+                                        name="Submissions"
+                                        fill="#ef4444"
+                                        radius={[4, 4, 0, 0]}
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -278,7 +299,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                                         <Legend
                                             wrapperStyle={{ fontSize: "12px" }}
                                             formatter={(value: string) => (
-                                                <span className="text-(--text-secondary)">{value}</span>
+                                                <span className="text-(--text-secondary)">
+                                                    {value}
+                                                </span>
                                             )}
                                         />
                                     </PieChart>

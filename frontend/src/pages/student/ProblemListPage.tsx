@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardBody } from "~/components/ui/card";
+import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { DifficultyBadge } from "~/components/ui/badge";
 import { Loader2 } from "lucide-react";
@@ -95,7 +95,7 @@ export function ProblemListPage() {
                                     <tr
                                         key={problem.problemId}
                                         className="border-b border-(--border-color) hover:bg-(--bg-tertiary) cursor-pointer transition-colors group"
-                                        onClick={() => navigate(`/problems/${problem.problemId}`)}
+                                        onClick={() => navigate(`/problems/${problem.slug}`)}
                                     >
                                         <td className="px-4 py-3">
                                             <span className="text-(--text-primary) font-medium group-hover:text-red-500 transition-colors">
@@ -104,7 +104,9 @@ export function ProblemListPage() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <DifficultyBadge
-                                                difficulty={problem.difficulty as "EASY" | "MEDIUM" | "HARD"}
+                                                difficulty={
+                                                    problem.difficulty as "EASY" | "MEDIUM" | "HARD"
+                                                }
                                             />
                                         </td>
                                         <td className="px-4 py-3">

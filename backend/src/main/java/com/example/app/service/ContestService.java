@@ -1,6 +1,7 @@
 package com.example.app.service;
 
 import com.example.app.dto.request.contest.AddContestProblemRequest;
+import com.example.app.dto.request.contest.BulkAddParticipantsRequest;
 import com.example.app.dto.request.contest.CreateContestRequest;
 import com.example.app.dto.request.contest.UpdateContestRequest;
 import com.example.app.dto.response.ContestParticipantResponse;
@@ -39,7 +40,6 @@ public class ContestService {
     private final SecurityHelper securityHelper;
 
     // ==================== CRUD ====================
-
     @Transactional
     @PreAuthorize("hasAuthority('CONTEST_CREATE')")
     public ContestResponse createContest(CreateContestRequest request) {
@@ -58,7 +58,7 @@ public class ContestService {
         contest = contestRepository.save(contest);
         log.info("Created contest: {} by user: {}", contest.getContestId(), currentUserId);
 
-        return contestMapper.toResponse(contest, currentUserId, false);
+        return contestMapper.toResponse(contest, false);
     }
 
     @PreAuthorize("hasAuthority('CONTEST_READ')")
@@ -69,7 +69,7 @@ public class ContestService {
         UUID currentUserId = securityHelper.getCurrentUserId();
         boolean isJoined = participantRepository.existsByContestContestIdAndParticipantUserId(contestId, currentUserId);
 
-        return contestMapper.toResponse(contest, currentUserId, isJoined);
+        return contestMapper.toResponse(contest, isJoined);
     }
 
     @Transactional
@@ -79,7 +79,7 @@ public class ContestService {
                 .orElseThrow(() -> new AppException(ErrorCode.CONTEST_NOT_FOUND));
 
         // Check ownership (unless admin)
-        if (!isContestOwnerOrAdmin(contest)) {
+        if (isContestOwnerOrAdmin(contest)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -93,7 +93,7 @@ public class ContestService {
 
         UUID currentUserId = securityHelper.getCurrentUserId();
         boolean isJoined = participantRepository.existsByContestContestIdAndParticipantUserId(contestId, currentUserId);
-        return contestMapper.toResponse(contest, currentUserId, isJoined);
+        return contestMapper.toResponse(contest, isJoined);
     }
 
     @Transactional
@@ -102,7 +102,7 @@ public class ContestService {
         Contest contest = contestRepository.findById(contestId)
                 .orElseThrow(() -> new AppException(ErrorCode.CONTEST_NOT_FOUND));
 
-        if (!isContestOwnerOrAdmin(contest)) {
+        if (isContestOwnerOrAdmin(contest)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -116,7 +116,7 @@ public class ContestService {
         return contestRepository.findAccessibleContests(currentUserId, pageable)
                 .map(c -> {
                     boolean isJoined = participantRepository.existsByContestContestIdAndParticipantUserId(c.getContestId(), currentUserId);
-                    return contestMapper.toResponse(c, currentUserId, isJoined);
+                    return contestMapper.toResponse(c, isJoined);
                 });
     }
 
@@ -126,7 +126,7 @@ public class ContestService {
         return contestRepository.findByContestOwnerUserId(currentUserId, pageable)
                 .map(c -> {
                     boolean isJoined = participantRepository.existsByContestContestIdAndParticipantUserId(c.getContestId(), currentUserId);
-                    return contestMapper.toResponse(c, currentUserId, isJoined);
+                    return contestMapper.toResponse(c, isJoined);
                 });
     }
 
@@ -138,7 +138,7 @@ public class ContestService {
         Contest contest = contestRepository.findById(contestId)
                 .orElseThrow(() -> new AppException(ErrorCode.CONTEST_NOT_FOUND));
 
-        if (!isContestOwnerOrAdmin(contest)) {
+        if (isContestOwnerOrAdmin(contest)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -165,7 +165,7 @@ public class ContestService {
         Contest contest = contestRepository.findById(contestId)
                 .orElseThrow(() -> new AppException(ErrorCode.CONTEST_NOT_FOUND));
 
-        if (!isContestOwnerOrAdmin(contest)) {
+        if (isContestOwnerOrAdmin(contest)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -178,7 +178,7 @@ public class ContestService {
     public List<ContestProblemResponse> getProblems(UUID contestId) {
         UUID currentUserId = securityHelper.getCurrentUserId();
         List<ContestProblem> problems = contestProblemRepository.findByContestContestId(contestId);
-        
+
         return problems.stream()
                 .map(cp -> {
                     int userSubs = countUserSubmissions(contestId, cp.getProblem().getProblemId(), currentUserId);
@@ -250,6 +250,35 @@ public class ContestService {
 
     @Transactional
     @PreAuthorize("hasAuthority('CONTEST_UPDATE')")
+    public int addParticipants(UUID contestId, List<String> emails) {
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONTEST_NOT_FOUND));
+
+        int addedCount = 0;
+        for (String email : emails) {
+            if (email == null || email.trim().isEmpty()) continue;
+            
+            userRepository.findByEmail(email.trim()).ifPresent(user -> {
+                if (!participantRepository.existsByContestContestIdAndParticipantUserId(contestId, user.getUserId())) {
+                    ContestParticipantId cpId = new ContestParticipantId(contestId, user.getUserId());
+                    ContestParticipant participant = ContestParticipant.builder()
+                            .id(cpId)
+                            .contest(contest)
+                            .participant(user)
+                            .build();
+
+                    participantRepository.save(participant);
+                }
+            });
+            addedCount++;
+        }
+        
+        log.info("Added {} participants to contest {} by instructor", addedCount, contestId);
+        return addedCount;
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('CONTEST_UPDATE')")
     public void removeParticipant(UUID contestId, UUID userId) {
         ContestParticipantId cpId = new ContestParticipantId(contestId, userId);
         if (!participantRepository.existsById(cpId)) {
@@ -268,10 +297,6 @@ public class ContestService {
 
     // ==================== SUBMISSION VALIDATION ====================
 
-    /**
-     * Validate if user can submit to a problem in a contest.
-     * Called from SubmissionService.
-     */
     public void validateContestSubmission(UUID contestId, UUID problemId, UUID userId) {
         Contest contest = contestRepository.findById(contestId)
                 .orElseThrow(() -> new AppException(ErrorCode.CONTEST_NOT_FOUND));
@@ -309,10 +334,10 @@ public class ContestService {
     private boolean isContestOwnerOrAdmin(Contest contest) {
         UUID currentUserId = securityHelper.getCurrentUserId();
         if (securityHelper.hasAuthority("CONTEST_DELETE")) {  // Admin
-            return true;
+            return false;
         }
-        return contest.getContestOwner() != null && 
-               contest.getContestOwner().getUserId().equals(currentUserId);
+        return contest.getContestOwner() == null ||
+                !contest.getContestOwner().getUserId().equals(currentUserId);
     }
 
     private int countUserSubmissions(UUID contestId, UUID problemId, UUID userId) {

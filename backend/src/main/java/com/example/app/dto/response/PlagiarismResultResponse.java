@@ -23,5 +23,10 @@ public class PlagiarismResultResponse {
     private String user2Name;
     
     private Double similarity;
+    private Double lexicalScore;
+    private Double astScore;
+    private Double cfgScore;
+    private com.example.app.entity.enums.PlagiarismVerdict verdict;
+
     private OffsetDateTime checkedAt;
 }

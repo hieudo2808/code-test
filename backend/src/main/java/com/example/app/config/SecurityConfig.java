@@ -49,7 +49,9 @@ public class SecurityConfig {
             "/api/checkstatus",
             "/api/internal/judge/callback",
             "/api/maintenance/status",
-            "/ws/**"
+            "/ws/**",
+            "/users/*/avatar",
+            "/api/users/*/avatar"
     };
 
     @Value("${app.cors.allowed-origins}")

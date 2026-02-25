@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/internal/judge")
 @RequiredArgsConstructor
 public class JudgeCallbackController {
-
     private final ResultProcessor resultProcessor;
 
     @PutMapping("/callback")

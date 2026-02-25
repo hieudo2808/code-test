@@ -28,8 +28,9 @@ export interface Submission {
     problemId: string;
     problemTitle: string;
     problemSlug: string;
+    problemEvaluationType?: string;
     contestId?: string;
-    status: "PENDING" | "JUDGING" | "DONE" | "ERROR";
+    status: "PENDING" | "JUDGING" | "DONE" | "ERROR" | "NEED_REVIEW";
     verdict?: string;
     message?: string;
     score?: number;
@@ -60,17 +61,26 @@ export const submissionService = {
         return response.data.result;
     },
 
-    async getMySubmissionsByProblem(problemId: string, page = 0, size = 5) {
-        const response = await api.get(
-            `/submissions/me/problem/${problemId}?page=${page}&size=${size}`
-        );
+    async getMySubmissionsByProblem(
+        problemId: string,
+        page = 0,
+        size = 5,
+        contestId?: string | null
+    ) {
+        const params = new URLSearchParams({ page: String(page), size: String(size) });
+        if (contestId) params.append("contestId", contestId);
+        const response = await api.get(`/submissions/me/problem/${problemId}?${params.toString()}`);
         return response.data.result;
     },
 
     async pollSubmission(id: string, maxAttempts = 240, interval = 500): Promise<Submission> {
         for (let i = 0; i < maxAttempts; i++) {
             const submission = await this.getSubmission(id);
-            if (submission.status === "DONE" || submission.status === "ERROR") {
+            if (
+                submission.status === "DONE" ||
+                submission.status === "ERROR" ||
+                submission.status === "NEED_REVIEW"
+            ) {
                 return submission;
             }
             await new Promise((resolve) => setTimeout(resolve, interval));
@@ -79,9 +89,7 @@ export const submissionService = {
     },
 
     async getTestcaseDetail(submissionId: string, testcaseId: string): Promise<TestcaseDetail> {
-        const response = await api.get(
-            `/submissions/${submissionId}/results/${testcaseId}/detail`
-        );
+        const response = await api.get(`/submissions/${submissionId}/results/${testcaseId}/detail`);
         return response.data.result;
     },
 
@@ -108,7 +116,17 @@ export const submissionService = {
         const params = new URLSearchParams({ page: String(page), size: String(size) });
         if (filters.submitterId) params.append("submitterId", filters.submitterId);
         if (filters.verdict) params.append("verdict", filters.verdict);
-        const response = await api.get(`/submissions/problem/${problemId}/search?${params.toString()}`);
+        const response = await api.get(
+            `/submissions/problem/${problemId}/search?${params.toString()}`
+        );
+        return response.data.result;
+    },
+
+    async gradeSubmission(
+        submissionId: string,
+        data: { score: number; verdict: string }
+    ): Promise<Submission> {
+        const response = await api.put(`/submissions/${submissionId}/grade`, data);
         return response.data.result;
     },
 };

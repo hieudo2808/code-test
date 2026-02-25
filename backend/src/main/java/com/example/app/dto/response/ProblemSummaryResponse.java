@@ -23,4 +23,5 @@ public class ProblemSummaryResponse {
     
     // Stats
     Integer testcaseCount;
+    Double acceptanceRate;
 }

@@ -48,7 +48,7 @@ public class TestcaseService {
                 .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
 
         // Validate ownership or admin
-        if (!canManageProblem(problem)) {
+        if (canManageProblem(problem)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -132,7 +132,7 @@ public class TestcaseService {
         Problem problem = testcase.getProblem();
         
         // Validate ownership or admin
-        if (!canManageProblem(problem)) {
+        if (canManageProblem(problem)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -185,7 +185,7 @@ public class TestcaseService {
         Testcase testcase = testcaseRepository.findById(testcaseId)
                 .orElseThrow(() -> new AppException(ErrorCode.TESTCASE_NOT_FOUND));
 
-        if (!canManageProblem(testcase.getProblem())) {
+        if (canManageProblem(testcase.getProblem())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -218,7 +218,7 @@ public class TestcaseService {
                 .orElseThrow(() -> new AppException(ErrorCode.TESTCASE_NOT_FOUND));
 
         // Validate ownership or admin
-        if (!canManageProblem(testcase.getProblem())) {
+        if (canManageProblem(testcase.getProblem())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -233,9 +233,6 @@ public class TestcaseService {
 
     // ==================== HELPERS ====================
 
-    /**
-     * Auto-sync problem.maxScore = sum of all testcase points.
-     */
     private void syncMaxScore(Problem problem) {
         Double total = testcaseRepository.sumTestcasePointsByProblemId(problem.getProblemId());
         problem.setMaxScore(total != null ? total : 0.0);
@@ -244,11 +241,11 @@ public class TestcaseService {
 
     private boolean canManageProblem(Problem problem) {
         UUID currentUserId = securityHelper.getCurrentUserId();
-        if (currentUserId == null) return false;
+        if (currentUserId == null) return true;
         
-        if (securityHelper.hasAuthority("USER_MANAGE")) return true;
+        if (securityHelper.hasAuthority("USER_MANAGE")) return false;
         
-        return problem.getProblemCreator() != null 
-                && currentUserId.equals(problem.getProblemCreator().getUserId());
+        return problem.getProblemCreator() == null
+                || !currentUserId.equals(problem.getProblemCreator().getUserId());
     }
 }

@@ -50,26 +50,35 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
 
     Page<Submission> findBySubmitterUserIdAndProblemProblemId(UUID submitterId, UUID problemId, Pageable pageable);
 
+    // Context-aware: practice only (contest IS NULL)
+    Page<Submission> findBySubmitterUserIdAndProblemProblemIdAndContestIsNull(UUID submitterId, UUID problemId, Pageable pageable);
+
+    // Context-aware: specific contest
+    Page<Submission> findBySubmitterUserIdAndProblemProblemIdAndContestContestId(UUID submitterId, UUID problemId, UUID contestId, Pageable pageable);
+
     // Instructor: contest submissions with filters
     @Query("SELECT s FROM Submission s WHERE s.contest.contestId = :contestId" +
            " AND (:problemId IS NULL OR s.problem.problemId = :problemId)" +
-           " AND (:submitterId IS NULL OR s.submitter.userId = :submitterId)" +
+           " AND (:submitterName IS NULL OR LOWER(s.submitter.fullName) LIKE LOWER(CONCAT('%', :submitterName, '%')))" +
            " AND (:verdict IS NULL OR s.finalVerdict = :verdict)")
     Page<Submission> searchContestSubmissions(@Param("contestId") UUID contestId,
                                               @Param("problemId") UUID problemId,
-                                              @Param("submitterId") UUID submitterId,
+                                              @Param("submitterName") String submitterName,
                                               @Param("verdict") Verdict verdict,
                                               Pageable pageable);
 
     // Instructor: problem submissions with filters
     @Query("SELECT s FROM Submission s WHERE s.problem.problemId = :problemId" +
            " AND s.contest IS NULL" +
-           " AND (:submitterId IS NULL OR s.submitter.userId = :submitterId)" +
+           " AND (:submitterName IS NULL OR LOWER(s.submitter.fullName) LIKE LOWER(CONCAT('%', :submitterName, '%')))" +
            " AND (:verdict IS NULL OR s.finalVerdict = :verdict)")
     Page<Submission> searchProblemSubmissions(@Param("problemId") UUID problemId,
-                                              @Param("submitterId") UUID submitterId,
+                                              @Param("submitterName") String submitterName,
                                               @Param("verdict") Verdict verdict,
                                               Pageable pageable);
+    // Plagiarism: per-problem loading
+    @Query("SELECT DISTINCT s.problem.problemId FROM Submission s WHERE s.contest.contestId = :contestId")
+    java.util.List<UUID> findDistinctProblemIdsByContest(@Param("contestId") UUID contestId);
 
     Page<Submission> findByContestContestIdAndProblemProblemId(UUID contestId, UUID problemId, Pageable pageable);
 

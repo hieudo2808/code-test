@@ -3,19 +3,26 @@ package com.example.app.service;
 import com.example.app.dto.response.PlagiarismResultResponse;
 import com.example.app.entity.PlagiarismCheck;
 import com.example.app.entity.Submission;
+import com.example.app.entity.enums.PlagiarismVerdict;
 import com.example.app.entity.enums.Verdict;
 import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
+import com.example.app.repository.ContestProblemRepository;
 import com.example.app.repository.ContestRepository;
 import com.example.app.repository.PlagiarismCheckRepository;
 import com.example.app.repository.SubmissionRepository;
+import com.example.app.util.AstSimilarityUtil;
 import com.example.app.util.CodeNormalizer;
+import com.example.app.util.WinnowingUtil;
+import com.example.app.util.CfgSimilarityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -24,138 +31,222 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PlagiarismService {
-
-    private static final double THRESHOLD = 0.75;
+    private static final int PAGE_SIZE = 200;
+    private static final int BATCH_SAVE_SIZE = 50;
+    private static final int MAX_BUCKET_SIZE = 100;
 
     private final PlagiarismCheckRepository plagiarismRepository;
     private final SubmissionRepository submissionRepository;
     private final ContestRepository contestRepository;
+    private final ContestProblemRepository contestProblemRepository;
     private final CodeNormalizer codeNormalizer;
+    private final WinnowingUtil winnowingUtil;
+    private final AstSimilarityUtil astSimilarityUtil;
+    private final CfgSimilarityUtil cfgSimilarityUtil;
+    private final TransactionTemplate transactionTemplate;
+    private final SystemSettingsService systemSettingsService;
 
-    /**
-     * Trigger plagiarism check for a contest.
-     * Runs asynchronously in background.
-     */
+    // Lightweight pair key — avoids String concatenation GC overhead
+    private record PairKey(UUID a, UUID b) {
+        static PairKey of(UUID id1, UUID id2) {
+            return id1.compareTo(id2) < 0 ? new PairKey(id1, id2) : new PairKey(id2, id1);
+        }
+    }
+
     @Async("judgeExecutor")
-    @Transactional
-    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
-    public void runPlagiarismCheck(UUID contestId) {
-        log.info("Starting plagiarism check for contest: {}", contestId);
+    public void runPlagiarismCheck(UUID contestId, UUID problemId) {
+        try {
+            log.info("Starting plagiarism check for contest: {} and problem: {}", contestId, problemId);
 
-        if (!contestRepository.existsById(contestId)) {
-            throw new AppException(ErrorCode.CONTEST_NOT_FOUND);
+            if (!contestRepository.existsById(contestId)) {
+                throw new AppException(ErrorCode.CONTEST_NOT_FOUND);
+            }
+
+            // Preload existing pairs once
+            Set<PairKey> existingPairs = plagiarismRepository.findByContestIdAndProblemId(contestId, problemId).stream()
+                    .map(c -> PairKey.of(
+                            c.getSubmission1().getSubmissionId(),
+                            c.getSubmission2().getSubmissionId()))
+                    .collect(Collectors.toSet());
+
+            int totalSaved = 0;
+
+            List<Submission> subs = loadProblemSubmissions(contestId, problemId);
+            log.info("Problem {}: {} valid submissions to check", problemId, subs.size());
+
+            totalSaved += transactionTemplate.execute(status -> checkWithInvertedIndex(subs, existingPairs));
+
+            // Explicitly release references for GC
+            subs.clear();
+
+            log.info("Plagiarism check completed for contest {} and problem {}. Found {} suspicious pairs.",
+                    contestId, problemId, totalSaved);
+
+        } catch (Exception e) {
+            log.error("Plagiarism check failed for contest {} and problem {}: {}", contestId, problemId, e.getMessage(), e);
         }
-
-        // Load all valid submissions for contest
-        List<Submission> submissions = submissionRepository.findByContestContestId(contestId, null)
-                .getContent()
-                .stream()
-                .filter(s -> s.getFinalVerdict() != Verdict.COMPILE_ERROR)
-                .toList();
-
-        log.info("Found {} valid submissions for plagiarism check", submissions.size());
-
-        // Group by problem
-        Map<UUID, List<Submission>> byProblem = submissions.stream()
-                .collect(Collectors.groupingBy(s -> s.getProblem().getProblemId()));
-
-        int savedCount = 0;
-
-        // Process each problem
-        for (Map.Entry<UUID, List<Submission>> entry : byProblem.entrySet()) {
-            UUID problemId = entry.getKey();
-            List<Submission> problemSubs = entry.getValue();
-
-            log.debug("Checking {} submissions for problem {}", problemSubs.size(), problemId);
-
-            savedCount += checkPairwise(problemSubs);
-        }
-
-        log.info("Plagiarism check completed for contest {}. Found {} suspicious pairs.", contestId, savedCount);
     }
 
     /**
-     * Pairwise comparison for a list of submissions.
-     * Returns number of suspicious pairs saved.
+     * Load valid submissions for one problem in pages.
+     * Only this problem's data lives in memory at a time.
      */
-    private int checkPairwise(List<Submission> submissions) {
-        int savedCount = 0;
+    private List<Submission> loadProblemSubmissions(UUID contestId, UUID problemId) {
+        List<Submission> result = new ArrayList<>();
+        int page = 0;
+        while (true) {
+            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
+            Page<Submission> chunk = submissionRepository
+                    .findByContestContestIdAndProblemProblemId(contestId, problemId, pageable);
+
+            for (Submission s : chunk.getContent()) {
+                if (s.getFinalVerdict() != Verdict.COMPILE_ERROR) {
+                    result.add(s);
+                }
+            }
+            if (!chunk.hasNext()) break;
+            page++;
+        }
+        return result;
+    }
+
+    /**
+     * Inverted-index approach with early pruning.
+     * 1. Pre-compute fingerprints (each submission processed once)
+     * 2. Build inverted index: hash → submission IDs
+     * 3. Count shared fingerprints, prune candidates that can't reach threshold
+     * 4. Compute final similarity and batch-save results
+     */
+    private int checkWithInvertedIndex(List<Submission> submissions, Set<PairKey> existingPairs) {
         int n = submissions.size();
+        if (n < 2) return 0;
 
-        for (int i = 0; i < n - 1; i++) {
-            Submission sub1 = submissions.get(i);
-            UUID user1Id = sub1.getSubmitter() != null ? sub1.getSubmitter().getUserId() : null;
+        // Fetch configs
+        int k = systemSettingsService.getSettingAsInt("plagiarism.winnowing.k", 15);
+        int w = systemSettingsService.getSettingAsInt("plagiarism.winnowing.w", 5);
+        double threshold = systemSettingsService.getSettingAsDouble("plagiarism.threshold", 85.0) / 100.0;
+        double pruneFactor = Math.min(0.30, threshold * 0.5); // Prune pairs below 30% or half threshold
 
-            for (int j = i + 1; j < n; j++) {
-                Submission sub2 = submissions.get(j);
-                UUID user2Id = sub2.getSubmitter() != null ? sub2.getSubmitter().getUserId() : null;
+        // 1. Pre-compute fingerprints, skip too-short code
+        Map<UUID, Set<Long>> fpCache = new LinkedHashMap<>();
+        Map<UUID, Submission> subMap = new LinkedHashMap<>();
+        
+        // BATCH NORMALIZE to eliminate N+1 synchronous network bottlenecks
+        Map<UUID, String> normalizedCache = codeNormalizer.normalizeBatch(submissions);
 
-                // Skip if same user
-                if (user1Id != null && user1Id.equals(user2Id)) {
-                    continue;
-                }
+        for (Submission sub : submissions) {
+            String normalized = normalizedCache.get(sub.getSubmissionId());
+            if (normalized == null || normalized.isEmpty()) continue;
 
-                // Skip if already checked
-                if (plagiarismRepository.existsBySubmission1SubmissionIdAndSubmission2SubmissionId(
-                        sub1.getSubmissionId(), sub2.getSubmissionId())) {
-                    continue;
-                }
+            Set<Long> fp = winnowingUtil.generateFingerprint(normalized, k, w);
+            if (fp.size() >= 5) { // Minimal features to consider
+                fpCache.put(sub.getSubmissionId(), fp);
+                subMap.put(sub.getSubmissionId(), sub);
+            }
+        }
 
-                // Calculate similarity
-                double similarity = codeNormalizer.calculateSimilarity(
-                        sub1.getSourceCode(),
-                        sub2.getSourceCode(),
-                        sub1.getLanguageId()
-                );
+        if (fpCache.size() < 2) return 0;
 
-                // Save if above threshold
-                if (similarity >= THRESHOLD) {
-                    PlagiarismCheck check = PlagiarismCheck.builder()
-                            .submission1(sub1)
-                            .submission2(sub2)
-                            .similarityScore(similarity)
-                            .build();
+        // 2. Build inverted index, skip top-frequent hashes (boilerplate noise)
+        Map<Long, List<UUID>> invertedIndex = new HashMap<>();
+        for (Map.Entry<UUID, Set<Long>> entry : fpCache.entrySet()) {
+            for (Long hash : entry.getValue()) {
+                invertedIndex.computeIfAbsent(hash, key -> new ArrayList<>()).add(entry.getKey());
+            }
+        }
 
-                    plagiarismRepository.save(check);
-                    savedCount++;
+        // 3. Count shared fingerprints per candidate pair with early pruning
+        Map<PairKey, Integer> sharedCounts = new HashMap<>();
 
-                    log.info("Suspicious pair found: {} - {} with similarity {:.2f}",
-                            sub1.getSubmissionId(), sub2.getSubmissionId(), similarity);
+        for (Map.Entry<Long, List<UUID>> entry : invertedIndex.entrySet()) {
+            List<UUID> bucket = entry.getValue();
+            if (bucket.size() < 2 || bucket.size() > Math.min(MAX_BUCKET_SIZE, Math.max((int)(fpCache.size() * 0.2), 50))) continue;
+
+            for (int i = 0; i < bucket.size() - 1; i++) {
+                for (int j = i + 1; j < bucket.size(); j++) {
+                    PairKey key = PairKey.of(bucket.get(i), bucket.get(j));
+                    sharedCounts.merge(key, 1, Integer::sum);
                 }
             }
         }
 
+        // 4. Evaluate candidates
+        List<PlagiarismCheck> batch = new ArrayList<>();
+        int savedCount = 0;
+
+        for (Map.Entry<PairKey, Integer> entry : sharedCounts.entrySet()) {
+            PairKey key = entry.getKey();
+            if (existingPairs.contains(key)) continue;
+
+            int intersection = entry.getValue();
+            Set<Long> fp1 = fpCache.get(key.a());
+            Set<Long> fp2 = fpCache.get(key.b());
+            if (fp1 == null || fp2 == null) continue;
+
+            // Containment bound
+            int minSize = Math.min(fp1.size(), fp2.size());
+            if (intersection < pruneFactor * minSize) continue;
+
+            // Compute similarity (Jaccard-ish containment)
+            double similarity = (double) intersection / minSize;
+
+            if (similarity >= 0.30) { // Keep if > 30% for Phase 2/3 potential
+                Submission sub1 = subMap.get(key.a());
+                Submission sub2 = subMap.get(key.b());
+                if (sub1 == null || sub2 == null) continue;
+
+                // Skip same user
+                UUID u1 = sub1.getSubmitter() != null ? sub1.getSubmitter().getUserId() : null;
+                UUID u2 = sub2.getSubmitter() != null ? sub2.getSubmitter().getUserId() : null;
+                if (u1 != null && u1.equals(u2)) continue;
+
+                String norm1 = normalizedCache.get(key.a());
+                String norm2 = normalizedCache.get(key.b());
+                PlagiarismResultResponse result = compareCodes(key.a(), key.b(), similarity, norm1, norm2, threshold);
+
+                batch.add(PlagiarismCheck.builder()
+                        .submission1(sub1).submission2(sub2)
+                        .similarityScore(result.getSimilarity())
+                        .lexicalScore(similarity)
+                        .astScore(result.getAstScore())
+                        .cfgScore(result.getCfgScore())
+                        .verdict(result.getVerdict())
+                        .build());
+                existingPairs.add(key);
+                savedCount++;
+
+                log.info("Suspicious pair: {} - {} (lexical: {}, ast: {}, cfg: {}) verdict: {}",
+                        key.a(), key.b(), String.format("%.2f", similarity), 
+                        String.format("%.2f", result.getAstScore()), 
+                        String.format("%.2f", result.getCfgScore()), 
+                        result.getVerdict());
+
+                if (batch.size() >= BATCH_SAVE_SIZE) {
+                    plagiarismRepository.saveAll(batch);
+                    batch.clear();
+                }
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            plagiarismRepository.saveAll(batch);
+        }
         return savedCount;
     }
 
-    /**
-     * Get plagiarism results for a contest.
-     */
-    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
     public List<PlagiarismResultResponse> getResults(UUID contestId) {
-        List<PlagiarismCheck> checks = plagiarismRepository.findByContestId(contestId);
-
-        return checks.stream()
-                .map(this::toResponse)
-                .toList();
+        return plagiarismRepository.findByContestId(contestId).stream()
+                .map(this::toResponse).toList();
     }
 
-    /**
-     * Get plagiarism results for a specific problem in a contest.
-     */
-    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
     public List<PlagiarismResultResponse> getResultsByProblem(UUID contestId, UUID problemId) {
-        List<PlagiarismCheck> checks = plagiarismRepository.findByContestIdAndProblemId(contestId, problemId);
-
-        return checks.stream()
-                .map(this::toResponse)
-                .toList();
+        return plagiarismRepository.findByContestIdAndProblemId(contestId, problemId).stream()
+                .map(this::toResponse).toList();
     }
 
     private PlagiarismResultResponse toResponse(PlagiarismCheck check) {
         Submission sub1 = check.getSubmission1();
         Submission sub2 = check.getSubmission2();
-
         return PlagiarismResultResponse.builder()
                 .checkId(check.getCheckId())
                 .problemId(sub1.getProblem().getProblemId())
@@ -167,7 +258,40 @@ public class PlagiarismService {
                 .user2Id(sub2.getSubmitter() != null ? sub2.getSubmitter().getUserId() : null)
                 .user2Name(sub2.getSubmitter() != null ? sub2.getSubmitter().getFullName() : "Unknown")
                 .similarity(check.getSimilarityScore())
+                .lexicalScore(check.getLexicalScore())
+                .astScore(check.getAstScore())
+                .cfgScore(check.getCfgScore())
+                .verdict(check.getVerdict())
                 .checkedAt(check.getCheckedAt())
+                .build();
+    }
+
+    /**
+     * Reusable public method for evaluating the three layers of similarity logic.
+     * Currently primarily used by testing, but cleanly encapsulates the verdict rules.
+     */
+    public PlagiarismResultResponse compareCodes(UUID submission1Id, UUID submission2Id, double lexicalScore, String norm1, String norm2, double threshold) {
+        double astScore = astSimilarityUtil.calculateAstSimilarity(norm1, norm2);
+        double cfgScore = cfgSimilarityUtil.calculateCfgSimilarity(norm1, norm2);
+        double maxScore = Math.max(lexicalScore, Math.max(astScore, cfgScore));
+        
+        PlagiarismVerdict verdict;
+        if (maxScore >= threshold) {
+            verdict = PlagiarismVerdict.PLAGIARIZED;
+        } else if (maxScore >= 0.50) {
+            verdict = PlagiarismVerdict.SUSPICIOUS;
+        } else {
+            verdict = PlagiarismVerdict.CLEAN;
+        }
+
+        return PlagiarismResultResponse.builder()
+                .submission1Id(submission1Id)
+                .submission2Id(submission2Id)
+                .similarity(maxScore)
+                .lexicalScore(lexicalScore)
+                .astScore(astScore)
+                .cfgScore(cfgScore)
+                .verdict(verdict)
                 .build();
     }
 }

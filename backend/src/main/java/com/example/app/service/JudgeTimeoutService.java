@@ -21,7 +21,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class JudgeTimeoutService {
-
     private final SubmissionResultRepository resultRepository;
     private final Judge0Client judge0Client;
     private final ResultProcessor resultProcessor;
@@ -41,8 +40,22 @@ public class JudgeTimeoutService {
         for (SubmissionResult result : staleResults) {
             try {
                 EvaluationType evalType = result.getSubmission().getProblem().getEvaluationType();
-                if (evalType == EvaluationType.HEURISTIC && result.getTimeMs() != null) {
-                    log.debug("Skipping HEURISTIC result {} (waiting for scorer, not stale)", result.getSubmissionResultId());
+
+                // HEURISTIC result waiting for scorer: check if scorer is still working or stuck
+                if (evalType == EvaluationType.HEURISTIC && result.getTimeMs() != null && result.getVerdict() == null) {
+                    OffsetDateTime scorerCutoff = OffsetDateTime.now().minusSeconds(60);
+                    boolean scorerStuck = result.getSubmission().getUpdateAt() != null
+                            && result.getSubmission().getUpdateAt().isBefore(scorerCutoff);
+
+                    if (!scorerStuck) {
+                        log.debug("Skipping HEURISTIC result {} (waiting for scorer, not stale)", result.getSubmissionResultId());
+                        continue;
+                    }
+
+                    // Scorer seems stuck — re-trigger scoring event
+                    log.warn("HEURISTIC result {} has been waiting for scorer >60s, re-triggering scoring",
+                            result.getSubmissionResultId());
+                    resultProcessor.retriggerScoring(result);
                     continue;
                 }
 

@@ -20,20 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Aggregates per-testcase results into a final submission verdict and score.
- * Uses PESSIMISTIC_WRITE lock to prevent race conditions from concurrent callbacks.
- *
- * Final verdict logic (3-state):
- *   ACCEPTED = all testcases accepted
- *   PARTIAL  = at least 1 accepted, but not all
- *   FAILED   = zero testcases accepted
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class Aggregator {
-
     private final SubmissionRepository submissionRepository;
     private final SubmissionResultRepository resultRepository;
 

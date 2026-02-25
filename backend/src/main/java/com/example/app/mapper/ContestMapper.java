@@ -12,8 +12,7 @@ import java.util.UUID;
 
 @Component
 public class ContestMapper {
-
-    public ContestResponse toResponse(Contest contest, UUID currentUserId, boolean isJoined) {
+    public ContestResponse toResponse(Contest contest, boolean isJoined) {
         return ContestResponse.builder()
                 .contestId(contest.getContestId())
                 .contestName(contest.getContestName())

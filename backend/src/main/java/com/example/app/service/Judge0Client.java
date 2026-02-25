@@ -40,55 +40,6 @@ public class Judge0Client {
             maxAttempts = 3,
             backoff = @Backoff(delay = 2000, multiplier = 2)
     )
-    public String submit(Judge0Request request) {
-        request.setCallbackUrl(callbackUrl);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Auth-Token", authToken);
-
-        String jsonBody;
-        try {
-            jsonBody = objectMapper.writeValueAsString(request);
-        } catch (Exception e) {
-            log.error("Failed to serialize request", e);
-            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
-        }
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-
-        try {
-            ResponseEntity<Judge0Response> response = restTemplate.exchange(
-                    baseUrl + "/submissions?base64_encoded=false",
-                    HttpMethod.POST,
-                    entity,
-                    Judge0Response.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                String token = response.getBody().getToken();
-                log.debug("Submitted to Judge0, token: {}", token);
-                return token;
-            }
-
-            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
-
-        } catch (ResourceAccessException e) {
-            log.warn("Judge0 connection error: {}", e.getMessage());
-            throw e;
-        }
-    }
-
-    /**
-     * Submit multiple submissions in a single HTTP call using Judge0 batch API.
-     * Judge0 compiles the source code once and reuses it for all submissions in the batch.
-     * Returns a list of tokens in the same order as the input requests.
-     */
-    @Retryable(
-            retryFor = {ResourceAccessException.class, AppException.class},
-            maxAttempts = 3,
-            backoff = @Backoff(delay = 2000, multiplier = 2)
-    )
     public List<String> submitBatch(List<Judge0Request> requests) {
         if (requests.isEmpty()) return List.of();
 
@@ -105,8 +56,6 @@ public class Judge0Client {
             var wrapper = new java.util.HashMap<String, Object>();
             wrapper.put("submissions", requests);
             jsonBody = objectMapper.writeValueAsString(wrapper);
-
-            Judge0Request first = requests.get(0);
         } catch (Exception e) {
             log.error("Failed to serialize batch request", e);
             throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
@@ -138,19 +87,6 @@ public class Judge0Client {
         }
     }
 
-    @Recover
-    public List<String> recoverSubmitBatch(Exception e, List<Judge0Request> requests) {
-        log.error("Judge0 batch submit failed after all retries", e);
-        throw new AppException(ErrorCode.JUDGE_SERVICE_UNAVAILABLE);
-    }
-
-    /**
-     * Submit code and wait for result synchronously using submit + poll.
-     * Used for heuristic judging where we need the output before scoring.
-     *
-     * Judge0's wait=true is unreliable on some setups (returns 201 with null fields),
-     * so we submit normally, then poll GET /submissions/{token} until complete.
-     */
     public Judge0Response submitSync(Judge0Request request, int maxWaitSeconds) {
         // Don't use callback for sync submission
         request.setCallbackUrl(null);
@@ -192,7 +128,7 @@ public class Judge0Client {
 
         while (System.currentTimeMillis() < deadline) {
             try {
-                Thread.sleep(1000); // poll every 1 second
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
@@ -234,11 +170,5 @@ public class Judge0Client {
         );
 
         return response.getBody();
-    }
-
-    @Recover
-    public String recoverSubmit(Exception e, Judge0Request request) {
-        log.error("Judge0 submit failed after all retries", e);
-        throw new AppException(ErrorCode.JUDGE_SERVICE_UNAVAILABLE);
     }
 }

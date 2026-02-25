@@ -16,16 +16,60 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import com.example.app.repository.SystemSettingsRepository;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
     private final StringRedisTemplate redisTemplate;
+    private final SystemSettingsRepository systemSettingsRepository;
     private static final String RATE_LIMIT_PREFIX = "rate_limit:";
     private static final int AUTH_REQUESTS_PER_MINUTE = 20;
-    private static final int GENERAL_REQUESTS_PER_MINUTE = 200;
-    private static final long WINDOW_SECONDS = 60;
+    private static final int DEFAULT_GENERAL_REQUESTS = 200;
+    private static final long DEFAULT_WINDOW_SECONDS = 60;
+
+    // Cache settings for 60 seconds
+    private final AtomicInteger cachedGeneralLimit = new AtomicInteger(-1);
+    private final AtomicLong cachedWindowSeconds = new AtomicLong(-1);
+    private final AtomicLong cacheTimestamp = new AtomicLong(0);
+    private static final long CACHE_TTL_MS = 60_000;
+
+    private int getGeneralLimit() {
+        long now = System.currentTimeMillis();
+        if (cachedGeneralLimit.get() != -1 && (now - cacheTimestamp.get()) < CACHE_TTL_MS) {
+            return cachedGeneralLimit.get();
+        }
+        try {
+            int limit = systemSettingsRepository.findById("rate.limit.requests")
+                    .map(s -> Integer.parseInt(s.getSettingValue()))
+                    .orElse(DEFAULT_GENERAL_REQUESTS);
+            cachedGeneralLimit.set(limit);
+            return limit;
+        } catch (Exception e) {
+            return DEFAULT_GENERAL_REQUESTS;
+        }
+    }
+
+    private long getWindowSeconds() {
+        long now = System.currentTimeMillis();
+        if (cachedWindowSeconds.get() != -1 && (now - cacheTimestamp.get()) < CACHE_TTL_MS) {
+            return cachedWindowSeconds.get();
+        }
+        try {
+            long window = systemSettingsRepository.findById("rate.limit.window.seconds")
+                    .map(s -> Long.parseLong(s.getSettingValue()))
+                    .orElse(DEFAULT_WINDOW_SECONDS);
+            cachedWindowSeconds.set(window);
+            cacheTimestamp.set(now);
+            return window;
+        } catch (Exception e) {
+            return DEFAULT_WINDOW_SECONDS;
+        }
+    }
 
     @Override
     protected void doFilterInternal(
@@ -34,17 +78,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String clientIp = getClientIP(request);
         String path = request.getRequestURI();
 
         boolean isAuthEndpoint = path.contains("/api/auth") || path.contains("/auth");
         String bucketKey = RATE_LIMIT_PREFIX + clientIp + (isAuthEndpoint ? ":auth" : ":general");
-        int limit = isAuthEndpoint ? AUTH_REQUESTS_PER_MINUTE : GENERAL_REQUESTS_PER_MINUTE;
+        int limit = isAuthEndpoint ? AUTH_REQUESTS_PER_MINUTE : getGeneralLimit();
 
         Long currentCount = redisTemplate.opsForValue().increment(bucketKey);
         
         if (currentCount != null && currentCount == 1) {
-            redisTemplate.expire(bucketKey, WINDOW_SECONDS, TimeUnit.SECONDS);
+            redisTemplate.expire(bucketKey, getWindowSeconds(), TimeUnit.SECONDS);
         }
 
         if (currentCount != null && currentCount > limit) {

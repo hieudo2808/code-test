@@ -1,5 +1,6 @@
 package com.example.app.service;
 
+import com.example.app.dto.request.submission.ManualGradeRequest;
 import com.example.app.dto.request.submission.SubmitCodeRequest;
 import com.example.app.dto.response.SubmissionResponse;
 import com.example.app.dto.response.TestcaseDetailResponse;
@@ -39,7 +40,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class SubmissionService {
-
     private final SubmissionRepository submissionRepository;
     private final SubmissionResultRepository resultRepository;
     private final ProblemRepository problemRepository;
@@ -69,7 +69,6 @@ public class SubmissionService {
             );
             contest = contestRepository.findById(request.getContestId()).orElse(null);
         } else {
-            // Practice submission - check problem accessibility
             if (!problem.getIsPublic() && !canAccessProblem(problem)) {
                 throw new AppException(ErrorCode.FORBIDDEN);
             }
@@ -127,10 +126,18 @@ public class SubmissionService {
     }
 
     @PreAuthorize("hasAuthority('SUBMISSION_READ_SELF')")
-    public Page<SubmissionResponse> getMySubmissionsByProblem(UUID problemId, Pageable pageable) {
+    public Page<SubmissionResponse> getMySubmissionsByProblem(UUID problemId, UUID contestId, Pageable pageable) {
         UUID currentUserId = securityHelper.getCurrentUserId();
-        return submissionRepository.findBySubmitterUserIdAndProblemProblemId(currentUserId, problemId, pageable)
-                .map(submissionMapper::toResponse);
+
+        Page<Submission> page;
+        if (contestId != null) {
+            page = submissionRepository.findBySubmitterUserIdAndProblemProblemIdAndContestContestId(
+                    currentUserId, problemId, contestId, pageable);
+        } else {
+            page = submissionRepository.findBySubmitterUserIdAndProblemProblemIdAndContestIsNull(
+                    currentUserId, problemId, pageable);
+        }
+        return page.map(submissionMapper::toResponse);
     }
 
     @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
@@ -147,7 +154,7 @@ public class SubmissionService {
 
     @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
     public Page<SubmissionResponse> searchContestSubmissions(UUID contestId, UUID problemId,
-                                                             UUID submitterId, String verdict,
+                                                             String submitterName, String verdict,
                                                              Pageable pageable) {
         com.example.app.entity.enums.Verdict v = null;
         if (verdict != null && !verdict.isBlank()) {
@@ -155,12 +162,12 @@ public class SubmissionService {
                 v = com.example.app.entity.enums.Verdict.valueOf(verdict);
             } catch (IllegalArgumentException ignored) {}
         }
-        return submissionRepository.searchContestSubmissions(contestId, problemId, submitterId, v, pageable)
+        return submissionRepository.searchContestSubmissions(contestId, problemId, submitterName, v, pageable)
                 .map(submissionMapper::toResponse);
     }
 
     @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
-    public Page<SubmissionResponse> searchProblemSubmissions(UUID problemId, UUID submitterId,
+    public Page<SubmissionResponse> searchProblemSubmissions(UUID problemId, String submitterName,
                                                              String verdict, Pageable pageable) {
         com.example.app.entity.enums.Verdict v = null;
         if (verdict != null && !verdict.isBlank()) {
@@ -168,7 +175,7 @@ public class SubmissionService {
                 v = com.example.app.entity.enums.Verdict.valueOf(verdict);
             } catch (IllegalArgumentException ignored) {}
         }
-        return submissionRepository.searchProblemSubmissions(problemId, submitterId, v, pageable)
+        return submissionRepository.searchProblemSubmissions(problemId, submitterName, v, pageable)
                 .map(submissionMapper::toResponse);
     }
 
@@ -203,6 +210,34 @@ public class SubmissionService {
                 eventPublisher.publishEvent(new SubmissionCreatedEvent(submissionId));
             }
         });
+
+        return submissionMapper.toResponse(submission);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
+    public SubmissionResponse manualGrade(UUID submissionId, ManualGradeRequest request) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+
+        if (submission.getSubmissionStatus() != SubmissionStatus.NEED_REVIEW && 
+            !(submission.getSubmissionStatus() == SubmissionStatus.DONE && submission.getProblem().getEvaluationType() == com.example.app.entity.enums.EvaluationType.MANUAL)) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+
+        // Validate score is within range
+        Double maxScore = submission.getProblem().getMaxScore();
+        if (request.getScore() < 0 || (maxScore != null && request.getScore() > maxScore)) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+
+        submission.setFinalScore(request.getScore());
+        submission.setFinalVerdict(request.getVerdict());
+        submission.setSubmissionStatus(SubmissionStatus.DONE);
+        submission = submissionRepository.save(submission);
+
+        log.info("Manual graded submission: {} with score={} verdict={}",
+                submissionId, request.getScore(), request.getVerdict());
 
         return submissionMapper.toResponse(submission);
     }

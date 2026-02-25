@@ -21,7 +21,6 @@ public class TokenBlacklistService {
         
         String key = BLACKLIST_PREFIX + jti;
         redisTemplate.opsForValue().set(key, "1", ttlMillis, TimeUnit.MILLISECONDS);
-        log.debug("Blacklisted token JTI: {}, TTL: {}ms", jti, ttlMillis);
     }
 
     public boolean isBlacklisted(String jti) {

@@ -7,6 +7,7 @@ import { onMaintenanceChange, checkMaintenanceStatus } from "~/services/api";
 import { MaintenancePage } from "~/pages/shared/MaintenancePage";
 import { useAuth } from "~/contexts/AuthContext";
 import { UserRole } from "~/services/authService";
+import { Toaster } from "sonner";
 
 function MaintenanceGuard({ children }: { children: React.ReactNode }) {
     const [maintenance, setMaintenance] = useState(false);
@@ -29,7 +30,10 @@ function MaintenanceGuard({ children }: { children: React.ReactNode }) {
     // Admin users bypass maintenance mode
     const isAdmin = user?.role === UserRole.ADMIN;
 
-    if (maintenance && !isAdmin) {
+    const publicRoutes = ["/login", "/register"];
+    const isPublicRoute = publicRoutes.includes(window.location.pathname);
+
+    if (maintenance && !isAdmin && !isPublicRoute) {
         return <MaintenancePage />;
     }
 
@@ -39,6 +43,7 @@ function MaintenanceGuard({ children }: { children: React.ReactNode }) {
 export default function App() {
     return (
         <AuthProvider>
+            <Toaster position="top-right" richColors />
             <MaintenanceGuard>
                 <NotificationProvider>
                     <RouterProvider router={router} />

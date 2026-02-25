@@ -10,7 +10,6 @@ export function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [role, setRole] = useState<UserRole>(UserRole.STUDENT);
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -35,9 +34,9 @@ export function RegisterPage() {
         setIsLoading(true);
 
         try {
-            const result = await register({ name, email, password, role });
+            const result = await register({ name, email, password });
             if (result.success) {
-                navigate(getDefaultPathForRole(role), { replace: true });
+                navigate(getDefaultPathForRole(UserRole.STUDENT), { replace: true });
             } else {
                 setError(result.error || "Đăng ký thất bại");
             }
@@ -145,34 +144,6 @@ export function RegisterPage() {
                                     placeholder="••••••"
                                     required
                                 />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                                Vai trò
-                            </label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {(
-                                    [UserRole.STUDENT, UserRole.INSTRUCTOR, UserRole.ADMIN] as const
-                                ).map((r) => (
-                                    <button
-                                        key={r}
-                                        type="button"
-                                        onClick={() => setRole(r)}
-                                        className={`py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
-                                            role === r
-                                                ? "bg-linear-to-r from-red-500 to-red-600 text-white shadow-lg"
-                                                : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                                        }`}
-                                    >
-                                        {r === UserRole.STUDENT
-                                            ? "Sinh viên"
-                                            : r === UserRole.INSTRUCTOR
-                                              ? "Giảng viên"
-                                              : "Admin"}
-                                    </button>
-                                ))}
                             </div>
                         </div>
 

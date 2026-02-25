@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { DifficultyBadge, StatusBadge } from "~/components/ui/badge";
@@ -13,16 +13,30 @@ import {
     TableRow,
     TableCell,
 } from "~/components/ui/table";
-import { ArrowLeft, Clock, Database, Send, Loader2, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload } from "lucide-react";
+import {
+    ArrowLeft,
+    Clock,
+    Database,
+    Send,
+    Loader2,
+    RefreshCw,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Upload,
+} from "lucide-react";
 import { problemService, type Problem } from "~/services/problemService";
 import { languageService, type Language } from "~/services/languageService";
 import { submissionService, type Submission } from "~/services/submissionService";
 
-type SubmissionStatus = "PENDING" | "JUDGING" | "DONE" | "ERROR";
+type SubmissionStatus = "PENDING" | "JUDGING" | "DONE" | "ERROR" | "NEED_REVIEW";
 
 export function ProblemDetailPage() {
-    const { id } = useParams<{ id: string }>();
+    const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const contestId = searchParams.get("contestId");
 
     const [problem, setProblem] = useState<Problem | null>(null);
     const [languages, setLanguages] = useState<Language[]>([]);
@@ -47,11 +61,11 @@ export function ProblemDetailPage() {
 
     useEffect(() => {
         async function fetchData() {
-            if (!id) return;
+            if (!slug) return;
             try {
                 setLoading(true);
                 const [problemData, languagesData] = await Promise.all([
-                    problemService.getProblem(id),
+                    problemService.getProblemBySlug(slug),
                     languageService.getLanguages(),
                 ]);
                 setProblem(problemData);
@@ -67,30 +81,38 @@ export function ProblemDetailPage() {
             }
         }
         fetchData();
-    }, [id]);
+    }, [slug]);
 
-    const fetchSubmissions = useCallback(async (page = 0, overrideSize?: number) => {
-        if (!id) return;
-        const size = overrideSize ?? pageSize;
-        try {
-            setLoadingSubmissions(true);
-            const data = await submissionService.getMySubmissionsByProblem(id, page, size);
-            setSubmissions(data.content || []);
-            setTotalPages(data.totalPages || 0);
-            setTotalElements(data.totalElements || 0);
-            setSubmissionsPage(data.number || 0);
-        } catch (error) {
-            console.error("Error fetching submissions:", error);
-        } finally {
-            setLoadingSubmissions(false);
-        }
-    }, [id, pageSize]);
+    const fetchSubmissions = useCallback(
+        async (page = 0, overrideSize?: number) => {
+            if (!problem?.problemId) return;
+            const size = overrideSize ?? pageSize;
+            try {
+                setLoadingSubmissions(true);
+                const data = await submissionService.getMySubmissionsByProblem(
+                    problem.problemId,
+                    page,
+                    size,
+                    contestId
+                );
+                setSubmissions(data.content || []);
+                setTotalPages(data.totalPages || 0);
+                setTotalElements(data.totalElements || 0);
+                setSubmissionsPage(data.number || 0);
+            } catch (error) {
+                console.error("Error fetching submissions:", error);
+            } finally {
+                setLoadingSubmissions(false);
+            }
+        },
+        [problem?.problemId, pageSize, contestId]
+    );
 
     useEffect(() => {
-        if (id) {
+        if (problem?.problemId) {
             fetchSubmissions(0);
         }
-    }, [id, fetchSubmissions]);
+    }, [problem?.problemId, fetchSubmissions]);
 
     const handleSubmit = async () => {
         if (!problem || !code.trim()) return;
@@ -101,6 +123,7 @@ export function ProblemDetailPage() {
 
             const submission = await submissionService.submit({
                 problemId: problem.problemId,
+                ...(contestId && { contestId }),
                 languageId,
                 sourceCode: code,
             });
@@ -131,6 +154,7 @@ export function ProblemDetailPage() {
 
             const submission = await submissionService.submit({
                 problemId: problem.problemId,
+                ...(contestId && { contestId }),
                 languageId: fileLanguageId,
                 sourceCode: fileContent,
             });
@@ -296,10 +320,7 @@ export function ProblemDetailPage() {
                         />
                         {submissionStatus && <StatusBadge status={submissionStatus} />}
                         <div className="flex-1" />
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={isSubmitting || !code.trim()}
-                        >
+                        <Button onClick={handleSubmit} disabled={isSubmitting || !code.trim()}>
                             {isSubmitting ? (
                                 <>
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -345,10 +366,7 @@ export function ProblemDetailPage() {
                             {selectedFile ? selectedFile.name : "Chọn tệp"}
                         </label>
                         <div className="flex-1" />
-                        <Button
-                            onClick={handleFileSubmit}
-                            disabled={isSubmitting || !selectedFile}
-                        >
+                        <Button onClick={handleFileSubmit} disabled={isSubmitting || !selectedFile}>
                             {isSubmitting ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
@@ -364,16 +382,16 @@ export function ProblemDetailPage() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <h3 className="text-gray-900 dark:text-white font-semibold">
-                            Bài nộp
-                        </h3>
+                        <h3 className="text-gray-900 dark:text-white font-semibold">Bài nộp</h3>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => fetchSubmissions(submissionsPage)}
                             disabled={loadingSubmissions}
                         >
-                            <RefreshCw className={`w-4 h-4 mr-2 ${loadingSubmissions ? "animate-spin" : ""}`} />
+                            <RefreshCw
+                                className={`w-4 h-4 mr-2 ${loadingSubmissions ? "animate-spin" : ""}`}
+                            />
                             Làm mới
                         </Button>
                     </div>
@@ -393,7 +411,10 @@ export function ProblemDetailPage() {
                     <TableBody>
                         {submissions.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                <TableCell
+                                    colSpan={6}
+                                    className="text-center py-8 text-gray-500 dark:text-gray-400"
+                                >
                                     Không có bản ghi nào để hiển thị
                                 </TableCell>
                             </TableRow>
@@ -410,7 +431,13 @@ export function ProblemDetailPage() {
                                             {sub.submissionId.substring(0, 8)}...
                                         </TableCell>
                                         <TableCell>
-                                            <StatusBadge status={sub.status === "DONE" ? (sub.verdict || "DONE") : sub.status} />
+                                            <StatusBadge
+                                                status={
+                                                    sub.status === "DONE"
+                                                        ? sub.verdict || "DONE"
+                                                        : sub.status
+                                                }
+                                            />
                                         </TableCell>
                                         <TableCell>
                                             {sub.status === "DONE" ? (
@@ -424,17 +451,19 @@ export function ProblemDetailPage() {
                                         <TableCell>
                                             {sub.status === "DONE" ? (
                                                 isAccepted ? (
-                                                    <span className="text-green-600 font-medium">✓</span>
+                                                    <span className="text-green-600 font-medium">
+                                                        ✓
+                                                    </span>
                                                 ) : (
-                                                    <span className="text-red-600 font-medium">✗</span>
+                                                    <span className="text-red-600 font-medium">
+                                                        ✗
+                                                    </span>
                                                 )
                                             ) : (
                                                 <span className="text-gray-400">-</span>
                                             )}
                                         </TableCell>
-                                        <TableCell>
-                                            {getLanguageName(sub.languageId)}
-                                        </TableCell>
+                                        <TableCell>{getLanguageName(sub.languageId)}</TableCell>
                                         <TableCell className="text-gray-600 dark:text-gray-400">
                                             {formatDate(sub.submittedAt)}
                                         </TableCell>
@@ -481,7 +510,8 @@ export function ProblemDetailPage() {
                             <ChevronLeft className="w-4 h-4" />
                         </Button>
                         <span className="text-sm text-gray-500 dark:text-gray-400 px-2">
-                            {totalElements === 0 ? "0-0" : `${startIdx + 1}-${endIdx}`} của {totalElements}
+                            {totalElements === 0 ? "0-0" : `${startIdx + 1}-${endIdx}`} của{" "}
+                            {totalElements}
                         </span>
                         <Button
                             variant="ghost"

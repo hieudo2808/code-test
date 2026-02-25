@@ -9,6 +9,8 @@ import com.example.app.dto.response.UserResponse;
 import com.example.app.service.UserServices;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -95,6 +97,11 @@ public class UserController {
                 .message("Avatar updated successfully")
                 .result(avatarUrl)
                 .build();
+    }
+
+    @GetMapping("/{userId}/avatar")
+    public ResponseEntity<Resource> getUserAvatar(@PathVariable UUID userId) {
+        return userServices.getUserAvatar(userId);
     }
 }
 

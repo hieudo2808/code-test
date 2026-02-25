@@ -9,7 +9,7 @@ import org.mapstruct.*;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {
-    
+
     @Mapping(source = "role.roleName", target = "roleName")
     @Mapping(source = "active", target = "active")
     UserResponse toUserResponse(Users user);
@@ -18,7 +18,7 @@ public interface UserMapper {
     Users toUser(CreateUserRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(source = "roleName", target = "role.roleName")
+    @Mapping(target = "role", ignore = true)
     void updateFromAdmin(AdminUpdateUserRequest request, @MappingTarget Users user);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

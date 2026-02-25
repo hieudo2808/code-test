@@ -19,6 +19,8 @@ export interface ContestProblem {
     problemId: string;
     title: string;
     slug: string;
+    difficulty?: string;
+    maxScore?: number;
     maxSubmissions: number | null;
     submissionCount: number;
 }
@@ -27,6 +29,13 @@ export interface CreateContestRequest {
     contestName: string;
     startTime: string;
     endTime: string;
+    isPublic?: boolean;
+}
+
+export interface UpdateContestRequest {
+    contestName?: string;
+    startTime?: string;
+    endTime?: string;
     isPublic?: boolean;
 }
 
@@ -57,6 +66,11 @@ export const contestService = {
         return response.data.result;
     },
 
+    async updateContest(id: string, request: UpdateContestRequest): Promise<Contest> {
+        const response = await api.put(`/contests/${id}`, request);
+        return response.data.result;
+    },
+
     async addProblemToContest(contestId: string, request: AddContestProblemRequest): Promise<void> {
         await api.post(`/contests/${contestId}/problems`, request);
     },
@@ -82,6 +96,11 @@ export const contestService = {
     async addParticipant(contestId: string, email: string) {
         const response = await api.post(`/contests/${contestId}/participants`, { email });
         return response.data.result;
+    },
+
+    async addParticipants(contestId: string, emails: string[]) {
+        const response = await api.post(`/contests/${contestId}/participants/bulk`, { emails });
+        return response.data;
     },
 
     async removeParticipant(contestId: string, userId: string): Promise<void> {

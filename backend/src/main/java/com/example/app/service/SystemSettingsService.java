@@ -17,7 +17,6 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class SystemSettingsService {
-
     private final SystemSettingsRepository systemSettingsRepository;
 
     @PreAuthorize("hasAuthority('SYSTEM_CONFIG')")
@@ -30,9 +29,37 @@ public class SystemSettingsService {
 
     @PreAuthorize("hasAuthority('SYSTEM_CONFIG')")
     public String getSetting(String key) {
+        return getSettingInternal(key);
+    }
+
+    public String getSettingInternal(String key) {
         return systemSettingsRepository.findById(key)
                 .map(SystemSettings::getSettingValue)
                 .orElseThrow(() -> new AppException(ErrorCode.SETTING_NOT_FOUND));
+    }
+
+    public String getSettingInternal(String key, String defaultValue) {
+        return systemSettingsRepository.findById(key)
+                .map(SystemSettings::getSettingValue)
+                .orElse(defaultValue);
+    }
+
+    public int getSettingAsInt(String key, int defaultValue) {
+        try {
+            return Integer.parseInt(getSettingInternal(key, String.valueOf(defaultValue)));
+        } catch (NumberFormatException e) {
+            log.warn("Invalid integer for setting {}: fall back to default {}", key, defaultValue);
+            return defaultValue;
+        }
+    }
+
+    public double getSettingAsDouble(String key, double defaultValue) {
+        try {
+            return Double.parseDouble(getSettingInternal(key, String.valueOf(defaultValue)));
+        } catch (NumberFormatException e) {
+            log.warn("Invalid double for setting {}: fall back to default {}", key, defaultValue);
+            return defaultValue;
+        }
     }
 
     @Transactional

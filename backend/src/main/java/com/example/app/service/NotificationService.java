@@ -35,7 +35,6 @@ public class NotificationService {
     private final JavaMailSender mailSender;
 
     // ==================== READ (existing) ====================
-
     public Page<NotificationResponse> getMyNotifications(Pageable pageable) {
         UUID userId = securityHelper.getCurrentUserId();
         return userNotificationRepository.findByUserId(userId, pageable)
@@ -60,7 +59,6 @@ public class NotificationService {
     }
 
     // ==================== CREATE & BROADCAST ====================
-
     @Transactional
     public NotificationResponse sendToUsers(String title, String message, List<UUID> userIds) {
         Notification notification = Notification.builder()
@@ -79,7 +77,7 @@ public class NotificationService {
                     .build();
             userNotificationRepository.save(un);
 
-            NotificationResponse resp = toResponseFromEntity(notification, false);
+            NotificationResponse resp = toResponseFromEntity(notification);
             messagingTemplate.convertAndSendToUser(
                     user.getUserId().toString(),
                     "/queue/notifications",
@@ -87,7 +85,7 @@ public class NotificationService {
             );
         }
 
-        return toResponseFromEntity(notification, false);
+        return toResponseFromEntity(notification);
     }
 
     @Transactional
@@ -111,11 +109,11 @@ public class NotificationService {
             messagingTemplate.convertAndSendToUser(
                     user.getUserId().toString(),
                     "/queue/notifications",
-                    toResponseFromEntity(notification, false)
+                    toResponseFromEntity(notification)
             );
         }
 
-        return toResponseFromEntity(notification, false);
+        return toResponseFromEntity(notification);
     }
 
     // ==================== EMAIL ====================
@@ -146,12 +144,12 @@ public class NotificationService {
                 .build();
     }
 
-    private NotificationResponse toResponseFromEntity(Notification n, boolean isRead) {
+    private NotificationResponse toResponseFromEntity(Notification n) {
         return NotificationResponse.builder()
                 .notificationId(n.getNotificationId())
                 .title(n.getTitle())
                 .message(n.getMessage())
-                .isRead(isRead)
+                .isRead(false)
                 .createdAt(n.getCreatedAt())
                 .build();
     }

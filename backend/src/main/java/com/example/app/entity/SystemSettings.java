@@ -14,7 +14,6 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SystemSettings {
-
     @Id
     @Column(name = "settingKey", length = 100)
     private String settingKey;

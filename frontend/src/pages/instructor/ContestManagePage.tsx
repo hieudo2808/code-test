@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
+import { Input, TextArea } from "~/components/ui/input";
+import { Badge } from "~/components/ui/badge";
 import {
     Loader2,
     ChevronRight,
@@ -15,9 +16,12 @@ import {
     Calendar,
     ExternalLink,
     UserPlus,
+    Settings,
 } from "lucide-react";
 import { Modal } from "~/components/ui/Modal";
+import { toast } from "sonner";
 import { contestService, type Contest, type ContestProblem } from "~/services/contestService";
+import { problemService, type ProblemListItem } from "~/services/problemService";
 import { submissionService, type Submission } from "~/services/submissionService";
 import api from "~/services/api";
 
@@ -27,16 +31,19 @@ interface Participant {
     joinedAt: string;
 }
 
-type Tab = "problems" | "participants" | "submissions";
+type Tab = "problems" | "participants" | "submissions" | "settings";
 
 const VERDICT_OPTIONS = [
     { value: "", label: "Tất cả" },
     { value: "ACCEPTED", label: "Accepted" },
-    { value: "WRONG_ANSWER", label: "Wrong Answer" },
-    { value: "TIME_LIMIT_EXCEEDED", label: "TLE" },
-    { value: "MEMORY_LIMIT_EXCEEDED", label: "MLE" },
+    { value: "PARTIAL", label: "Partial" },
+    { value: "FAILED", label: "Failed" },
+    { value: "TIME_LIMIT", label: "TLE" },
+    { value: "MEMORY_LIMIT", label: "MLE" },
     { value: "RUNTIME_ERROR", label: "Runtime Error" },
-    { value: "COMPILATION_ERROR", label: "Compilation Error" },
+    { value: "COMPILE_ERROR", label: "Compile Error" },
+    { value: "SCORED", label: "Scored" },
+    { value: "MANUAL", label: "Manual" },
 ];
 
 export function ContestManagePage() {
@@ -50,8 +57,11 @@ export function ContestManagePage() {
     // Problems tab
     const [problems, setProblems] = useState<ContestProblem[]>([]);
     const [showAddProblem, setShowAddProblem] = useState(false);
+    const [isEditingProblem, setIsEditingProblem] = useState(false);
     const [addProblemId, setAddProblemId] = useState("");
+    const [editProblemTitle, setEditProblemTitle] = useState("");
     const [addMaxSubs, setAddMaxSubs] = useState("");
+    const [availableProblems, setAvailableProblems] = useState<ProblemListItem[]>([]);
 
     // Participants tab
     const [participants, setParticipants] = useState<Participant[]>([]);
@@ -71,11 +81,29 @@ export function ContestManagePage() {
     const [filterSubmitterId, setFilterSubmitterId] = useState("");
     const [filterVerdict, setFilterVerdict] = useState("");
 
+    // Settings tab
+    const [editName, setEditName] = useState("");
+    const [editStartTime, setEditStartTime] = useState("");
+    const [editEndTime, setEditEndTime] = useState("");
+    const [editIsPublic, setEditIsPublic] = useState(true);
+    const [savingSettings, setSavingSettings] = useState(false);
+
     useEffect(() => {
         if (!contestId) return;
         loadContest();
         loadProblems();
     }, [contestId]);
+
+    useEffect(() => {
+        if (showAddProblem && !isEditingProblem && availableProblems.length === 0) {
+            problemService
+                .getProblems(0, 1000)
+                .then((data) => {
+                    setAvailableProblems(data.content || []);
+                })
+                .catch((err) => console.error("Failed to load available problems:", err));
+        }
+    }, [showAddProblem, isEditingProblem, availableProblems.length]);
 
     useEffect(() => {
         if (activeTab === "participants" && contestId) {
@@ -91,6 +119,19 @@ export function ContestManagePage() {
             setLoading(true);
             const data = await contestService.getContest(contestId!);
             setContest(data);
+
+            setEditName(data.contestName);
+            // Convert to local datetime string for input format YYYY-MM-DDTHH:mm
+            const toLocalString = (iso: string) => {
+                if (!iso) return "";
+                const d = new Date(iso);
+                return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                    .toISOString()
+                    .slice(0, 16);
+            };
+            setEditStartTime(toLocalString(data.startTime));
+            setEditEndTime(toLocalString(data.endTime));
+            setEditIsPublic(data.isPublic);
         } catch (err) {
             console.error("Failed to load contest:", err);
         } finally {
@@ -121,13 +162,28 @@ export function ContestManagePage() {
 
     const handleAddParticipant = async () => {
         if (!addEmail.trim()) return;
+
+        // Extract emails from input separated by commas, spaces, or newlines
+        const emails = addEmail
+            .split(/[\s,]+/)
+            .map((e) => e.trim())
+            .filter((e) => e !== "");
+
+        if (emails.length === 0) return;
+
         try {
             setAddingParticipant(true);
             setAddParticipantError("");
-            await contestService.addParticipant(contestId!, addEmail.trim());
+            const res = await contestService.addParticipants(contestId!, emails);
             setShowAddParticipant(false);
             setAddEmail("");
             loadParticipants();
+
+            if (res.result > 0) {
+                toast.success(`Đã thêm thành công ${res.result} thí sinh.`);
+            } else {
+                toast.error("Không có thí sinh nào được thêm (email sai hoặc đã tồn tại).");
+            }
         } catch (err: any) {
             const msg = err?.response?.data?.message || "Không thể thêm thí sinh.";
             setAddParticipantError(msg);
@@ -141,9 +197,10 @@ export function ContestManagePage() {
         try {
             await contestService.removeParticipant(contestId!, userId);
             loadParticipants();
+            toast.success("Đã xóa thí sinh.");
         } catch (err) {
             console.error("Failed to remove participant:", err);
-            alert("Không thể xóa thí sinh.");
+            toast.error("Không thể xóa thí sinh.");
         }
     };
 
@@ -188,9 +245,18 @@ export function ContestManagePage() {
             setAddProblemId("");
             setAddMaxSubs("");
             loadProblems();
+            if (isEditingProblem) {
+                toast.success("Đã cập nhật giới hạn bài nộp.");
+            } else {
+                toast.success("Đã thêm bài tập.");
+            }
         } catch (err) {
             console.error("Failed to add problem:", err);
-            alert("Không thể thêm bài tập. Kiểm tra lại Problem ID.");
+            toast.error(
+                isEditingProblem
+                    ? "Không thể cập nhật giới hạn."
+                    : "Không thể thêm bài tập, kiểm tra lại ID."
+            );
         }
     };
 
@@ -199,8 +265,30 @@ export function ContestManagePage() {
         try {
             await api.delete(`/contests/${contestId}/problems/${problemId}`);
             loadProblems();
+            toast.success("Đã xóa bài tập.");
         } catch (err) {
             console.error("Failed to remove problem:", err);
+            toast.error("Không thể xóa bài tập.");
+        }
+    };
+
+    const handleSaveSettings = async () => {
+        try {
+            setSavingSettings(true);
+            const req = {
+                contestName: editName.trim() ? editName.trim() : undefined,
+                startTime: editStartTime ? new Date(editStartTime).toISOString() : undefined,
+                endTime: editEndTime ? new Date(editEndTime).toISOString() : undefined,
+                isPublic: editIsPublic,
+            };
+            await contestService.updateContest(contestId!, req);
+            toast.success("Đã cập nhật cài đặt cuộc thi.");
+            loadContest(); // Refresh basic info
+        } catch (err) {
+            console.error("Failed to update contest:", err);
+            toast.error("Cập nhật cài đặt thất bại.");
+        } finally {
+            setSavingSettings(false);
         }
     };
 
@@ -213,15 +301,19 @@ export function ContestManagePage() {
         if (!verdict) return <span className="text-gray-400">—</span>;
         const colors: Record<string, string> = {
             ACCEPTED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-            WRONG_ANSWER: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-            TIME_LIMIT_EXCEEDED:
-                "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-            MEMORY_LIMIT_EXCEEDED:
+            PARTIAL: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+            FAILED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+            TIME_LIMIT: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+            MEMORY_LIMIT:
                 "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-            RUNTIME_ERROR: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-            COMPILATION_ERROR: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+            RUNTIME_ERROR:
+                "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+            COMPILE_ERROR: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+            SCORED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+            MANUAL: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
         };
-        const cls = colors[verdict] || "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
+        const cls =
+            colors[verdict] || "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
         return (
             <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${cls}`}>
                 {verdict.replace(/_/g, " ")}
@@ -259,6 +351,7 @@ export function ContestManagePage() {
         { key: "problems", label: "Bài tập", icon: FileText },
         { key: "participants", label: "Thí sinh", icon: Users },
         { key: "submissions", label: "Tất cả bài nộp", icon: ClipboardList },
+        { key: "settings", label: "Cài đặt", icon: Settings },
     ];
 
     return (
@@ -338,7 +431,15 @@ export function ContestManagePage() {
                         <h3 className="font-semibold text-gray-900 dark:text-white">
                             Danh sách bài tập ({problems.length})
                         </h3>
-                        <Button size="sm" onClick={() => setShowAddProblem(true)}>
+                        <Button
+                            size="sm"
+                            onClick={() => {
+                                setIsEditingProblem(false);
+                                setAddProblemId("");
+                                setAddMaxSubs("");
+                                setShowAddProblem(true);
+                            }}
+                        >
                             <Plus className="w-4 h-4 mr-1" />
                             Thêm bài tập
                         </Button>
@@ -387,8 +488,21 @@ export function ContestManagePage() {
                                                 </p>
                                             </td>
                                             <td className="px-6 py-4">
-                                                {/* difficulty not in ContestProblem, show dash */}
-                                                <span className="text-gray-400">—</span>
+                                                {p.difficulty ? (
+                                                    <Badge
+                                                        variant={
+                                                            p.difficulty === "EASY"
+                                                                ? "success"
+                                                                : p.difficulty === "MEDIUM"
+                                                                  ? "warning"
+                                                                  : "error"
+                                                        }
+                                                    >
+                                                        {p.difficulty}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-gray-400">—</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-gray-600 dark:text-gray-300">
@@ -402,6 +516,24 @@ export function ContestManagePage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => {
+                                                            setIsEditingProblem(true);
+                                                            setAddProblemId(p.problemId);
+                                                            setEditProblemTitle(p.title);
+                                                            setAddMaxSubs(
+                                                                p.maxSubmissions
+                                                                    ? p.maxSubmissions.toString()
+                                                                    : ""
+                                                            );
+                                                            setShowAddProblem(true);
+                                                        }}
+                                                        title="Sửa giới hạn"
+                                                    >
+                                                        <FileText className="w-4 h-4 text-blue-500" />
+                                                    </Button>
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
@@ -421,12 +553,16 @@ export function ContestManagePage() {
                         </div>
                     )}
 
-                    {/* Add Problem Modal */}
+                    {/* Add/Edit Problem Modal */}
                     {showAddProblem && (
                         <Modal
                             isOpen={showAddProblem}
                             onClose={() => setShowAddProblem(false)}
-                            title="Thêm bài tập vào cuộc thi"
+                            title={
+                                isEditingProblem
+                                    ? "Sửa giới hạn bài nộp"
+                                    : "Thêm bài tập vào cuộc thi"
+                            }
                             footer={
                                 <>
                                     <Button
@@ -435,21 +571,41 @@ export function ContestManagePage() {
                                     >
                                         Hủy
                                     </Button>
-                                    <Button onClick={handleAddProblem}>Thêm</Button>
+                                    <Button onClick={handleAddProblem}>
+                                        {isEditingProblem ? "Xác nhận" : "Thêm"}
+                                    </Button>
                                 </>
                             }
                         >
                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Problem ID
-                                    </label>
-                                    <Input
-                                        value={addProblemId}
-                                        onChange={(e) => setAddProblemId(e.target.value)}
-                                        placeholder="Nhập Problem ID (UUID)"
-                                    />
-                                </div>
+                                {isEditingProblem ? (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Bài tập
+                                        </label>
+                                        <div className="px-3 py-2 font-semibold text-gray-900 bg-gray-50 border border-gray-200 rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white">
+                                            {editProblemTitle}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Chọn bài tập
+                                        </label>
+                                        <select
+                                            value={addProblemId}
+                                            onChange={(e) => setAddProblemId(e.target.value)}
+                                            className="flex w-full h-10 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-950 dark:border-gray-700 dark:text-white dark:focus:ring-red-600"
+                                        >
+                                            <option value="">-- Chọn bài tập --</option>
+                                            {availableProblems.map((ap) => (
+                                                <option key={ap.problemId} value={ap.problemId}>
+                                                    {ap.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Giới hạn bài nộp (bỏ trống = không giới hạn)
@@ -473,7 +629,13 @@ export function ContestManagePage() {
                         <h3 className="font-semibold text-gray-900 dark:text-white">
                             Danh sách thí sinh ({participants.length})
                         </h3>
-                        <Button size="sm" onClick={() => { setShowAddParticipant(true); setAddParticipantError(""); }}>
+                        <Button
+                            size="sm"
+                            onClick={() => {
+                                setShowAddParticipant(true);
+                                setAddParticipantError("");
+                            }}
+                        >
                             <UserPlus className="w-4 h-4 mr-1" />
                             Thêm thí sinh
                         </Button>
@@ -527,7 +689,10 @@ export function ContestManagePage() {
                                                         size="sm"
                                                         variant="ghost"
                                                         onClick={() =>
-                                                            handleRemoveParticipant(p.participantId, p.fullName)
+                                                            handleRemoveParticipant(
+                                                                p.participantId,
+                                                                p.fullName
+                                                            )
                                                         }
                                                         title="Xóa khỏi cuộc thi"
                                                     >
@@ -546,37 +711,55 @@ export function ContestManagePage() {
                     {showAddParticipant && (
                         <Modal
                             isOpen={showAddParticipant}
-                            onClose={() => { setShowAddParticipant(false); setAddEmail(""); setAddParticipantError(""); }}
+                            onClose={() => {
+                                setShowAddParticipant(false);
+                                setAddEmail("");
+                                setAddParticipantError("");
+                            }}
                             title="Thêm thí sinh vào cuộc thi"
                             footer={
                                 <>
                                     <Button
                                         variant="outline"
-                                        onClick={() => { setShowAddParticipant(false); setAddEmail(""); setAddParticipantError(""); }}
+                                        onClick={() => {
+                                            setShowAddParticipant(false);
+                                            setAddEmail("");
+                                            setAddParticipantError("");
+                                        }}
                                     >
                                         Hủy
                                     </Button>
-                                    <Button onClick={handleAddParticipant} disabled={addingParticipant}>
+                                    <Button
+                                        onClick={handleAddParticipant}
+                                        disabled={addingParticipant}
+                                    >
                                         {addingParticipant ? (
-                                            <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Đang thêm...</>
-                                        ) : "Thêm"}
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />{" "}
+                                                Đang thêm...
+                                            </>
+                                        ) : (
+                                            "Thêm"
+                                        )}
                                     </Button>
                                 </>
                             }
                         >
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Email sinh viên
-                                    </label>
-                                    <Input
+                                    <TextArea
+                                        label="Danh sách Email thí sinh"
                                         value={addEmail}
-                                        onChange={(e) => { setAddEmail(e.target.value); setAddParticipantError(""); }}
-                                        placeholder="Nhập email sinh viên..."
-                                        onKeyDown={(e) => { if (e.key === "Enter") handleAddParticipant(); }}
+                                        onChange={(e) => {
+                                            setAddEmail(e.target.value);
+                                            setAddParticipantError("");
+                                        }}
+                                        placeholder="Nhập hoặc dán danh sách email (ngăn cách bằng khoảng trắng, dòng mới, hoặc dấu phẩy)..."
+                                        rows={6}
                                     />
                                     <p className="text-xs text-gray-400 mt-1">
-                                        Nhập email của sinh viên đã có tài khoản trong hệ thống
+                                        Server sẽ tự động bỏ qua các email không hợp lệ hoặc đã có
+                                        trong kỳ thi.
                                     </p>
                                 </div>
                                 {addParticipantError && (
@@ -612,12 +795,12 @@ export function ContestManagePage() {
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                                    Thí sinh (ID)
+                                    Thí sinh
                                 </label>
                                 <Input
                                     value={filterSubmitterId}
                                     onChange={(e) => setFilterSubmitterId(e.target.value)}
-                                    placeholder="ID thí sinh..."
+                                    placeholder="Tên thí sinh..."
                                     className="w-56"
                                 />
                             </div>
@@ -765,6 +948,84 @@ export function ContestManagePage() {
                         )}
                     </Card>
                 </div>
+            )}
+
+            {activeTab === "settings" && (
+                <Card>
+                    <div className="p-6 space-y-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2">
+                            Cài đặt cuộc thi
+                        </h3>
+
+                        <div className="max-w-xl space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Tên cuộc thi
+                                </label>
+                                <Input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    placeholder="Ví dụ: Kỳ thi cuối kỳ..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Thời gian bắt đầu
+                                    </label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={editStartTime}
+                                        onChange={(e) => setEditStartTime(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Thời gian kết thúc
+                                    </label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={editEndTime}
+                                        onChange={(e) => setEditEndTime(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="isPublic"
+                                    checked={editIsPublic}
+                                    onChange={(e) => setEditIsPublic(e.target.checked)}
+                                    className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                                <label
+                                    htmlFor="isPublic"
+                                    className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                                >
+                                    Công khai{" "}
+                                    <span className="text-xs font-normal text-gray-500 ml-1">
+                                        (Bất kỳ ai cũng có thể tự do tham gia nếu biết link)
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="pt-4 flex justify-end">
+                                <Button onClick={handleSaveSettings} disabled={savingSettings}>
+                                    {savingSettings ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Đang lưu...
+                                        </>
+                                    ) : (
+                                        "Lưu thay đổi"
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </Card>
             )}
         </div>
     );

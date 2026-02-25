@@ -13,13 +13,9 @@ import java.util.UUID;
 
 @Repository
 public interface ContestProblemRepository extends JpaRepository<ContestProblem, ContestProblemId> {
-
     List<ContestProblem> findByContestContestId(UUID contestId);
 
     Optional<ContestProblem> findByContestContestIdAndProblemProblemId(UUID contestId, UUID problemId);
 
-    boolean existsByContestContestIdAndProblemProblemId(UUID contestId, UUID problemId);
-
-    @Query("SELECT COUNT(cp) FROM ContestProblem cp WHERE cp.contest.contestId = :contestId")
-    int countByContestId(@Param("contestId") UUID contestId);
+    void deleteAllByProblemProblemId(UUID problemId);
 }

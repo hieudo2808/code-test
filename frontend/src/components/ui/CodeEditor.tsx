@@ -21,6 +21,7 @@ export function CodeEditor({
     height = "450px",
 }: CodeEditorProps) {
     const languageMap: Record<string, string> = {
+        c: "c",
         python: "python",
         cpp: "cpp",
         java: "java",

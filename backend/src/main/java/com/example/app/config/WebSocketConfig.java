@@ -20,7 +20,6 @@ import java.util.List;
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 

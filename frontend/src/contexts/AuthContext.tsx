@@ -26,9 +26,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const currentUser = authService.getCurrentUser();
-        setUser(currentUser);
-        setIsLoading(false);
+        const initAuth = async () => {
+            const currentUser = authService.getCurrentUser();
+            setUser(currentUser);
+            setIsLoading(false);
+            if (currentUser && localStorage.getItem("token")) {
+                try {
+                    await refreshUser();
+                } catch (e) {
+                    console.error("Silent refresh failed", e);
+                }
+            }
+        };
+        initAuth();
     }, []);
 
     const login = useCallback(async (credentials: LoginCredentials) => {

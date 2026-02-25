@@ -47,9 +47,10 @@ public class SubmissionController {
     @GetMapping("/me/problem/{problemId}")
     public ApiResponse<Page<SubmissionResponse>> getMySubmissionsByProblem(
             @PathVariable UUID problemId,
+            @RequestParam(required = false) UUID contestId,
             @PageableDefault(size = 5, sort = "createAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return ApiResponse.<Page<SubmissionResponse>>builder()
-                .result(submissionService.getMySubmissionsByProblem(problemId, pageable))
+                .result(submissionService.getMySubmissionsByProblem(problemId, contestId, pageable))
                 .build();
     }
 
@@ -74,10 +75,11 @@ public class SubmissionController {
     public ApiResponse<Page<SubmissionResponse>> searchContestSubmissions(
             @PathVariable UUID contestId,
             @RequestParam(required = false) UUID problemId,
-            @RequestParam(required = false) UUID submitterId,
+            @RequestParam(required = false) String submitterId,
             @RequestParam(required = false) String verdict,
             @PageableDefault(size = 20, sort = "createAt",
                     direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        
         return ApiResponse.<Page<SubmissionResponse>>builder()
                 .result(submissionService.searchContestSubmissions(
                         contestId, problemId, submitterId, verdict, pageable))
@@ -87,10 +89,11 @@ public class SubmissionController {
     @GetMapping("/problem/{problemId}/search")
     public ApiResponse<Page<SubmissionResponse>> searchProblemSubmissions(
             @PathVariable UUID problemId,
-            @RequestParam(required = false) UUID submitterId,
+            @RequestParam(required = false) String submitterId,
             @RequestParam(required = false) String verdict,
             @PageableDefault(size = 20, sort = "createAt",
                     direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        
         return ApiResponse.<Page<SubmissionResponse>>builder()
                 .result(submissionService.searchProblemSubmissions(
                         problemId, submitterId, verdict, pageable))
@@ -102,6 +105,16 @@ public class SubmissionController {
         return ApiResponse.<SubmissionResponse>builder()
                 .message("Rejudge triggered successfully")
                 .result(submissionService.rejudge(submissionId))
+                .build();
+    }
+
+    @PutMapping("/{submissionId}/grade")
+    public ApiResponse<SubmissionResponse> manualGrade(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody com.example.app.dto.request.submission.ManualGradeRequest request) {
+        return ApiResponse.<SubmissionResponse>builder()
+                .message("Submission graded successfully")
+                .result(submissionService.manualGrade(submissionId, request))
                 .build();
     }
 

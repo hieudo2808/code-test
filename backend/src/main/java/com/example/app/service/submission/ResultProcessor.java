@@ -78,10 +78,8 @@ public class ResultProcessor {
         }
 
         EvaluationType evalType = result.getSubmission().getProblem().getEvaluationType();
-
-        // HEURISTIC + ACCEPTED → don't set verdict/score yet, let scorer decide
+        
         if (evalType == EvaluationType.HEURISTIC && verdict == Verdict.ACCEPTED) {
-            // Only save time/memory — verdict and score stay null for scorer
             resultRepository.save(result);
             eventPublisher.publishEvent(new ScoringRequiredEvent(
                     result.getSubmission().getSubmissionId(),
@@ -106,6 +104,7 @@ public class ResultProcessor {
         }
 
         resultRepository.save(result);
+        log.info("Successfully evaluated with verdict = {}", verdict);
 
         // Trigger aggregation check
         eventPublisher.publishEvent(new JudgeResultReceivedEvent(
@@ -163,9 +162,20 @@ public class ResultProcessor {
         }
 
         resultRepository.save(result);
+        log.info("Successfully evaluated with verdict = {}", verdict);
 
         eventPublisher.publishEvent(new JudgeResultReceivedEvent(
                 result.getSubmission().getSubmissionId()));
+    }
+
+    /**
+     * Re-trigger scoring for a heuristic result whose ScoringRequiredEvent was lost.
+     */
+    public void retriggerScoring(SubmissionResult result) {
+        log.info("[RETRIGGER] Re-publishing ScoringRequiredEvent for result={}", result.getSubmissionResultId());
+        eventPublisher.publishEvent(new ScoringRequiredEvent(
+                result.getSubmission().getSubmissionId(),
+                result.getSubmissionResultId()));
     }
 
     public static Verdict mapVerdict(Integer statusId) {

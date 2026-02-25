@@ -23,16 +23,11 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OutputGeneratorService {
-
     private final Judge0Client judge0Client;
     private final S3StorageService storageService;
     private final ProblemRepository problemRepository;
     private final TestcaseRepository testcaseRepository;
 
-    /**
-     * Generate expected outputs for all testcases by running the solution code.
-     * Uses batch submit + polling instead of sequential submitSync to avoid blocking.
-     */
     @Transactional
     public int generateOutputs(UUID problemId) {
         Problem problem = problemRepository.findById(problemId)
@@ -68,7 +63,7 @@ public class OutputGeneratorService {
         List<String> tokens = judge0Client.submitBatch(requests);
 
         // Poll until all are done (max 300 seconds — Judge0 can be slow under load)
-        List<Judge0Response> results = pollUntilDone(tokens, 300);
+        List<Judge0Response> results = pollUntilDone(tokens);
 
         // Save outputs
         int generatedCount = 0;
@@ -108,13 +103,13 @@ public class OutputGeneratorService {
     /**
      * Poll Judge0 for all tokens until all are done or timeout expires.
      */
-    private List<Judge0Response> pollUntilDone(List<String> tokens, int maxSeconds) {
+    private List<Judge0Response> pollUntilDone(List<String> tokens) {
         List<Judge0Response> results = new ArrayList<>();
         for (int i = 0; i < tokens.size(); i++) results.add(null);
 
         boolean[] done = new boolean[tokens.size()];
         int pending = tokens.size();
-        long deadline = System.currentTimeMillis() + maxSeconds * 1000L;
+        long deadline = System.currentTimeMillis() + 300 * 1000L;
 
         while (pending > 0 && System.currentTimeMillis() < deadline) {
             try {
@@ -141,7 +136,7 @@ public class OutputGeneratorService {
         }
 
         if (pending > 0) {
-            log.warn("{}/{} testcases timed out after {}s", pending, tokens.size(), maxSeconds);
+            log.warn("{}/{} testcases timed out after {}s", pending, tokens.size(), 300);
         }
 
         return results;

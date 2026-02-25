@@ -6,10 +6,14 @@
 /* --- Biến màu Global --- */
 :root {
     --bg-app: #ffffff;
+    --bg-primary: #ffffff;
     --bg-tertiary: #f5f5f5;
     --text-primary: #171717;
     --text-secondary: #525252;
+    --text-tertiary: #a3a3a3;
     --brand-600: #dc2626;
+    --primary-500: #ef4444;
+    --error-500: #ef4444;
     --code-bg: #1e293b;
     --code-text: #e2e8f0;
     --border-color: #e5e5e5;
@@ -19,8 +23,10 @@
 
 .dark {
     --bg-app: #0a0a0a;
+    --bg-primary: #0a0a0a;
     --text-primary: #fafafa;
     --text-secondary: #a3a3a3;
+    --text-tertiary: #737373;
     --bg-tertiary: #404040;
     --code-bg: #1e293b;
     --border-color: #404040;

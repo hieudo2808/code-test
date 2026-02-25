@@ -11,7 +11,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class LanguageService {
-
     private final LanguageRepository languageRepository;
 
     public List<LanguageResponse> getActiveLanguages() {

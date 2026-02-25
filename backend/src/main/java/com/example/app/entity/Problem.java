@@ -22,7 +22,6 @@ import java.util.UUID;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Problem {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "problemId")

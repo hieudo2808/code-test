@@ -9,6 +9,8 @@ import {
     CreateProblemRequest,
     UpdateProblemRequest,
 } from "~/services/problemService";
+import { languageService, Language } from "~/services/languageService";
+import { toast } from "sonner";
 
 interface CreateProblemProps {
     onNavigate: (page: string) => void;
@@ -49,6 +51,9 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
     const [scorerCode, setScorerCode] = useState("");
     const [scorerLanguageId, setScorerLanguageId] = useState(71); // Python
 
+    // Languages
+    const [languages, setLanguages] = useState<Language[]>([]);
+
     // Testcases
     const [testcases, setTestcases] = useState<Testcase[]>([]);
     const [deletedTestcaseIds, setDeletedTestcaseIds] = useState<string[]>([]);
@@ -56,6 +61,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
     const maxScore = testcases.reduce((sum, tc) => sum + (tc.score || 0), 0);
 
     useEffect(() => {
+        languageService.getLanguages().then(setLanguages).catch(console.error);
         if (isEditMode && problemId) {
             fetchProblemData(problemId);
         }
@@ -259,7 +265,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
             onNavigate("instructor-dashboard");
         } catch (error) {
             console.error("Failed to save problem:", error);
-            alert("Failed to save problem. Check console for details.");
+            toast.error("Failed to save problem. Check console for details.");
             isSubmittingRef.current = false;
         } finally {
             setIsSubmitting(false);
@@ -347,15 +353,34 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
 
                             {/* Solution Code */}
                             <div>
-                                <label className="text-sm font-medium text-(--text-secondary) block mb-1">
-                                    Solution Code (Optional)
-                                </label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-sm font-medium text-(--text-secondary)">
+                                        Solution Code (Optional)
+                                    </label>
+                                    <select
+                                        className="px-2 py-1 text-sm bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
+                                        value={solutionLanguageId}
+                                        onChange={(e) =>
+                                            setSolutionLanguageId(Number(e.target.value))
+                                        }
+                                    >
+                                        {languages.map((lang) => (
+                                            <option key={lang.id} value={lang.id}>
+                                                {lang.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <CodeEditor
                                     value={solutionCode}
                                     onChange={(value) => setSolutionCode(value)}
                                     placeholder="// Enter reference solution code here..."
                                     height="250px"
                                     className="mb-1"
+                                    language={
+                                        languages.find((l) => l.id === solutionLanguageId)
+                                            ?.monacoLanguage || "python"
+                                    }
                                 />
                                 <p className="text-xs text-(--text-tertiary) mt-1">
                                     Used for auto-generating outputs for testcases.
@@ -365,15 +390,34 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                             {/* Heuristic Scorer */}
                             {evaluationType === "HEURISTIC" && (
                                 <div>
-                                    <label className="text-sm font-medium text-(--text-secondary) block mb-1">
-                                        Custom Scorer
-                                    </label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="text-sm font-medium text-(--text-secondary)">
+                                            Custom Scorer
+                                        </label>
+                                        <select
+                                            className="px-2 py-1 text-sm bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
+                                            value={scorerLanguageId}
+                                            onChange={(e) =>
+                                                setScorerLanguageId(Number(e.target.value))
+                                            }
+                                        >
+                                            {languages.map((lang) => (
+                                                <option key={lang.id} value={lang.id}>
+                                                    {lang.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <CodeEditor
                                         value={scorerCode}
                                         onChange={(value) => setScorerCode(value)}
                                         placeholder={`// Custom scorer logic...`}
                                         height="250px"
                                         className="mb-1"
+                                        language={
+                                            languages.find((l) => l.id === scorerLanguageId)
+                                                ?.monacoLanguage || "python"
+                                        }
                                     />
                                 </div>
                             )}

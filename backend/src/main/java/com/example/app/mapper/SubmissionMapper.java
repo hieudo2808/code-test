@@ -10,10 +10,10 @@ import com.example.app.entity.enums.Verdict;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public class SubmissionMapper {
-
     public SubmissionResponse toResponse(Submission submission) {
         SubmissionStatus status = submission.getSubmissionStatus();
         boolean isDone = status == SubmissionStatus.DONE;
@@ -23,6 +23,7 @@ public class SubmissionMapper {
                 .problemId(submission.getProblem().getProblemId())
                 .problemTitle(submission.getProblem().getTitle())
                 .problemSlug(submission.getProblem().getSlug())
+                .problemEvaluationType(submission.getProblem().getEvaluationType())
                 .status(status)
                 .submittedAt(submission.getCreateAt())
                 .submitterId(submission.getSubmitter() != null ? submission.getSubmitter().getUserId() : null)
@@ -41,6 +42,9 @@ public class SubmissionMapper {
                     .score(submission.getFinalScore())
                     .maxScore(submission.getProblem().getMaxScore())
                     .finishedAt(submission.getUpdateAt());
+        } else if (status == SubmissionStatus.NEED_REVIEW) {
+            // Show max score for grading context
+            builder.maxScore(submission.getProblem().getMaxScore());
         } else {
             // Still processing - show max score only
             builder.maxScore(submission.getProblem().getMaxScore());
@@ -61,8 +65,8 @@ public class SubmissionMapper {
             Verdict verdict = submission.getFinalVerdict();
             if (verdict == Verdict.COMPILE_ERROR || verdict == Verdict.RUNTIME_ERROR) {
                 String message = results.stream()
-                        .filter(r -> r.getErrorMessage() != null)
                         .map(SubmissionResult::getErrorMessage)
+                        .filter(Objects::nonNull)
                         .findFirst()
                         .orElse(null);
                 response.setMessage(message);

@@ -295,7 +295,9 @@ export function ContestDetailPage() {
                                             <Button
                                                 size="sm"
                                                 onClick={() =>
-                                                    navigate(`/problems/${problem.problemId}`)
+                                                    navigate(
+                                                        `/problems/${problem.slug}?contestId=${contest.contestId}`
+                                                    )
                                                 }
                                                 disabled={
                                                     !contest.isJoined &&

@@ -33,6 +33,19 @@ public class PlagiarismCheck {
     @Column(name = "similarityScore", nullable = false)
     private Double similarityScore;
 
+    @Column(name = "lexicalScore")
+    private Double lexicalScore;
+
+    @Column(name = "astScore")
+    private Double astScore;
+
+    @Column(name = "cfgScore")
+    private Double cfgScore;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verdict")
+    private com.example.app.entity.enums.PlagiarismVerdict verdict;
+
     @CreationTimestamp
     @Column(name = "checkedAt", nullable = false)
     private OffsetDateTime checkedAt;

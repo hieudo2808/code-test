@@ -1,7 +1,6 @@
 package com.example.app.security;
 
 import com.example.app.service.TokenBlacklistService;
-import io.jsonwebtoken.Claims;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

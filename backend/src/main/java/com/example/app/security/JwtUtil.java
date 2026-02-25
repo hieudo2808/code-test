@@ -7,12 +7,13 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import com.example.app.repository.SystemSettingsRepository;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +23,9 @@ import java.util.function.Function;
 @Getter
 @Component
 public class JwtUtil {
+    @Autowired
+    private SystemSettingsRepository systemSettingsRepository;
+
     @Value("${jwt.secret}")
     private String secret;
 
@@ -75,7 +79,19 @@ public class JwtUtil {
         claims.put("userId", user.getUserId().toString());
         claims.put("role", user.getRole().getRoleName());
 
-        return createToken(claims, user.getEmail(), expiration);
+        long currentExpiration = expiration;
+        try {
+            String dbExpiration = systemSettingsRepository.findById("jwt.expiration")
+                    .map(com.example.app.entity.SystemSettings::getSettingValue)
+                    .orElse(null);
+            if (dbExpiration != null) {
+                currentExpiration = Long.parseLong(dbExpiration);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load JWT expiration from database", e);
+        }
+
+        return createToken(claims, user.getEmail(), currentExpiration);
     }
 
     public String generateRefreshToken(Users user) {

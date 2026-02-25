@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
-import { Settings, Shield, Clock, Server, Save, Loader2, RefreshCw, ToggleLeft, ToggleRight } from "lucide-react";
+import {
+    Settings,
+    Shield,
+    Clock,
+    Server,
+    Save,
+    Loader2,
+    RefreshCw,
+    ToggleLeft,
+    ToggleRight,
+} from "lucide-react";
 import { settingsService, type SystemSettingsMap } from "~/services/settingsService";
 
 interface SettingField {
@@ -14,7 +24,8 @@ const GENERAL_SETTINGS: SettingField[] = [
     {
         key: "maintenance.mode",
         label: "Maintenance Mode",
-        description: "When enabled, the platform will show a maintenance page to all users except admins.",
+        description:
+            "When enabled, the platform will show a maintenance page to all users except admins.",
         type: "toggle",
     },
     {
@@ -83,7 +94,9 @@ export function SettingsPage() {
             setSettings(data);
             setOriginalSettings(data);
         } catch {
-            setError("Failed to load settings. Make sure the SystemSettings table exists and is seeded.");
+            setError(
+                "Failed to load settings. Make sure the SystemSettings table exists and is seeded."
+            );
         } finally {
             setLoading(false);
         }
@@ -146,10 +159,17 @@ export function SettingsPage() {
         if (field.type === "toggle") {
             const isOn = value === "true";
             return (
-                <div key={field.key} className="flex items-center justify-between py-4 border-b border-[var(--border-color)] last:border-0">
+                <div
+                    key={field.key}
+                    className="flex items-center justify-between py-4 border-b border-[var(--border-color)] last:border-0"
+                >
                     <div className="flex-1 mr-4">
-                        <p className="text-sm font-medium text-[var(--text-primary)]">{field.label}</p>
-                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">{field.description}</p>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">
+                            {field.label}
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                            {field.description}
+                        </p>
                     </div>
                     <button
                         onClick={() => handleToggle(field.key)}
@@ -167,9 +187,14 @@ export function SettingsPage() {
         }
 
         return (
-            <div key={field.key} className="py-4 border-b border-[var(--border-color)] last:border-0">
+            <div
+                key={field.key}
+                className="py-4 border-b border-[var(--border-color)] last:border-0"
+            >
                 <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-medium text-[var(--text-primary)]">{field.label}</label>
+                    <label className="text-sm font-medium text-[var(--text-primary)]">
+                        {field.label}
+                    </label>
                     {field.key === "max.upload.size" && value && (
                         <span className="text-xs text-[var(--text-secondary)]">
                             ≈ {formatBytes(Number(value))}
@@ -190,7 +215,9 @@ export function SettingsPage() {
                         className="flex-1 px-3 py-2 text-sm rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-red-500/30"
                     />
                     {field.suffix && (
-                        <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap">{field.suffix}</span>
+                        <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap">
+                            {field.suffix}
+                        </span>
                     )}
                 </div>
             </div>
@@ -210,7 +237,9 @@ export function SettingsPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">System Settings</h1>
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+                        System Settings
+                    </h1>
                     <p className="text-sm text-[var(--text-secondary)] mt-1">
                         Manage platform configuration and security settings.
                     </p>
@@ -229,7 +258,11 @@ export function SettingsPage() {
                         disabled={!hasChanges() || saving}
                         className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {saving ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Save className="w-4 h-4" />
+                        )}
                         Save Changes
                     </button>
                 </div>
@@ -254,13 +287,15 @@ export function SettingsPage() {
                         <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                        <h2 className="text-base font-semibold text-[var(--text-primary)]">General</h2>
-                        <p className="text-xs text-[var(--text-secondary)]">Platform-wide configuration</p>
+                        <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                            General
+                        </h2>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                            Platform-wide configuration
+                        </p>
                     </div>
                 </div>
-                <div className="px-6">
-                    {GENERAL_SETTINGS.map(renderField)}
-                </div>
+                <div className="px-6">{GENERAL_SETTINGS.map(renderField)}</div>
             </div>
 
             {/* Security Settings */}
@@ -270,13 +305,15 @@ export function SettingsPage() {
                         <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                        <h2 className="text-base font-semibold text-[var(--text-primary)]">Security</h2>
-                        <p className="text-xs text-[var(--text-secondary)]">Authentication and rate limiting</p>
+                        <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                            Security
+                        </h2>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                            Authentication and rate limiting
+                        </p>
                     </div>
                 </div>
-                <div className="px-6">
-                    {SECURITY_SETTINGS.map(renderField)}
-                </div>
+                <div className="px-6">{SECURITY_SETTINGS.map(renderField)}</div>
             </div>
 
             {/* System Info (read-only) */}
@@ -286,14 +323,24 @@ export function SettingsPage() {
                         <Clock className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                        <h2 className="text-base font-semibold text-[var(--text-primary)]">System Info</h2>
-                        <p className="text-xs text-[var(--text-secondary)]">Read-only runtime information</p>
+                        <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                            System Info
+                        </h2>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                            Read-only runtime information
+                        </p>
                     </div>
                 </div>
                 <div className="px-6 py-4 space-y-3">
                     <InfoRow label="Environment" value={import.meta.env.MODE} />
-                    <InfoRow label="API Base URL" value={import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api"} />
-                    <InfoRow label="Frontend Build" value={`Vite ${import.meta.env.VITE_APP_VERSION || "dev"}`} />
+                    <InfoRow
+                        label="API Base URL"
+                        value={import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api"}
+                    />
+                    <InfoRow
+                        label="Frontend Build"
+                        value={`Vite ${import.meta.env.VITE_APP_VERSION || "dev"}`}
+                    />
                 </div>
             </div>
         </div>

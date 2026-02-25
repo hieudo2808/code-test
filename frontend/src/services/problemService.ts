@@ -53,7 +53,11 @@ export const problemService = {
         return response.data.result;
     },
 
-    async getMyProblems(page = 0, size = 20, keyword?: string): Promise<PaginatedResponse<ProblemListItem>> {
+    async getMyProblems(
+        page = 0,
+        size = 20,
+        keyword?: string
+    ): Promise<PaginatedResponse<ProblemListItem>> {
         const params = new URLSearchParams({ page: String(page), size: String(size) });
         if (keyword) params.append("keyword", keyword);
         const response = await api.get(`/problems/my?${params.toString()}`);
@@ -160,8 +164,6 @@ export interface UpdateProblemRequest {
 
 export interface TestcaseResponse {
     testcaseId: string;
-    inputPath: string;
-    outputPath: string;
     inputSizeKb: number;
     outputSizeKb: number;
     testcasePoint: number;

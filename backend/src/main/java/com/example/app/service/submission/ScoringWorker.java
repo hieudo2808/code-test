@@ -19,20 +19,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Handles the scoring stage for HEURISTIC-mode submissions.
- * Listens for ScoringRequiredEvent, runs the scorer code via Judge0,
- * and saves the score result. Uses async callbacks, never blocks.
- *
- * Scorer protocol:
- *   Input:  testcaseInput + SEPARATOR + userOutput + SEPARATOR + expectedOutput
- *   Output: "score:<value>\nmessage:<text>"
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScoringWorker {
-
     private static final String SEPARATOR = "\n---SEPARATOR---\n";
 
     private final Judge0Client judge0Client;
@@ -53,17 +43,14 @@ public class ScoringWorker {
         Problem problem = result.getSubmission().getProblem();
 
         try {
-            // Read inputs
             String testcaseInput = readFromS3(result.getTestcase().getInputPath());
             String expectedOutput = readFromS3(result.getTestcase().getOutputPath());
 
-            // Read user output from saved S3 path
             String userOutputPath = String.format("submissions/%s/results/%s/output.txt",
                     result.getSubmission().getSubmissionId(),
                     result.getTestcase().getTestcaseId());
             String userOutput = readFromS3(userOutputPath);
 
-            // Build scorer input
             String scorerInput = testcaseInput + SEPARATOR + userOutput + SEPARATOR + expectedOutput;
 
             Judge0Request scorerReq = Judge0Request.builder()
@@ -76,12 +63,8 @@ public class ScoringWorker {
                     .redirectStderrToStdout(true)
                     .build();
 
-            // Submit scorer synchronously (in dedicated scorer thread pool, not blocking judge pool)
-            // Note: Using submitSync here is acceptable because we're on the scorerExecutor pool,
-            // which is separate from the judgeExecutor. This keeps the implementation simple.
             var scorerResult = judge0Client.submitSync(scorerReq, 30);
 
-            // Parse scorer output
             double score = 0.0;
             String message = "Scorer error";
             Verdict verdict = Verdict.FAILED;
@@ -104,7 +87,6 @@ public class ScoringWorker {
                 }
             }
 
-            // Update result with scorer output
             result.setVerdict(verdict);
             result.setScore(score * result.getTestcase().getTestcasePoint());
             result.setErrorMessage(message);
@@ -119,7 +101,6 @@ public class ScoringWorker {
             resultRepository.save(result);
         }
 
-        // Trigger aggregation
         eventPublisher.publishEvent(new JudgeResultReceivedEvent(event.submissionId()));
     }
 

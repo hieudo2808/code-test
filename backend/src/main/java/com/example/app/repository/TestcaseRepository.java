@@ -11,7 +11,6 @@ import java.util.UUID;
 
 @Repository
 public interface TestcaseRepository extends JpaRepository<Testcase, UUID> {
-    
     // All testcases for a problem (for instructor/judge)
     List<Testcase> findByProblemProblemId(UUID problemId);
     

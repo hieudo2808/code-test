@@ -3,24 +3,21 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import {
-    Loader2,
-    ChevronRight,
-    ChevronLeft,
-    ClipboardList,
-    ExternalLink,
-} from "lucide-react";
+import { Loader2, ChevronRight, ChevronLeft, ClipboardList, ExternalLink } from "lucide-react";
 import { submissionService, type Submission } from "~/services/submissionService";
 import { problemService, type Problem } from "~/services/problemService";
 
 const VERDICT_OPTIONS = [
     { value: "", label: "Tất cả" },
     { value: "ACCEPTED", label: "Accepted" },
-    { value: "WRONG_ANSWER", label: "Wrong Answer" },
-    { value: "TIME_LIMIT_EXCEEDED", label: "TLE" },
-    { value: "MEMORY_LIMIT_EXCEEDED", label: "MLE" },
+    { value: "PARTIAL", label: "Partial" },
+    { value: "FAILED", label: "Failed" },
+    { value: "TIME_LIMIT", label: "TLE" },
+    { value: "MEMORY_LIMIT", label: "MLE" },
     { value: "RUNTIME_ERROR", label: "Runtime Error" },
-    { value: "COMPILATION_ERROR", label: "Compilation Error" },
+    { value: "COMPILE_ERROR", label: "Compile Error" },
+    { value: "SCORED", label: "Scored" },
+    { value: "MANUAL", label: "Manual" },
 ];
 
 export function ProblemSubmissionsPage() {
@@ -78,14 +75,16 @@ export function ProblemSubmissionsPage() {
         if (!verdict) return <span className="text-gray-400">—</span>;
         const colors: Record<string, string> = {
             ACCEPTED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-            WRONG_ANSWER: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-            TIME_LIMIT_EXCEEDED:
-                "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-            MEMORY_LIMIT_EXCEEDED:
+            PARTIAL: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+            FAILED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+            TIME_LIMIT: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+            MEMORY_LIMIT:
                 "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
             RUNTIME_ERROR:
                 "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-            COMPILATION_ERROR: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+            COMPILE_ERROR: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+            SCORED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+            MANUAL: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
         };
         const cls =
             colors[verdict] || "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
@@ -135,7 +134,8 @@ export function ProblemSubmissionsPage() {
                     Bài nộp — {problem?.title ?? "..."}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-1">
-                    {totalElements} bài nộp (chỉ bài nộp luyện tập, không bao gồm bài nộp trong cuộc thi)
+                    {totalElements} bài nộp (chỉ bài nộp luyện tập, không bao gồm bài nộp trong cuộc
+                    thi)
                 </p>
             </div>
 
@@ -144,12 +144,12 @@ export function ProblemSubmissionsPage() {
                 <div className="p-4 flex flex-wrap items-end gap-3">
                     <div>
                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            Sinh viên (ID)
+                            Sinh viên
                         </label>
                         <Input
                             value={filterSubmitterId}
                             onChange={(e) => setFilterSubmitterId(e.target.value)}
-                            placeholder="ID sinh viên..."
+                            placeholder="Tên sinh viên..."
                             className="w-56"
                         />
                     </div>
@@ -184,9 +184,7 @@ export function ProblemSubmissionsPage() {
                 ) : submissions.length === 0 ? (
                     <div className="text-center py-10">
                         <ClipboardList className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                        <p className="text-gray-500 dark:text-gray-400">
-                            Không có bài nộp nào
-                        </p>
+                        <p className="text-gray-500 dark:text-gray-400">Không có bài nộp nào</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

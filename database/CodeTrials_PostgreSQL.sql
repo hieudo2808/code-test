@@ -279,8 +279,34 @@ CREATE TABLE PlagiarismChecks (
     CHECK (submission1Id < submission2Id),
     UNIQUE (submission1Id, submission2Id),
     similarityScore DOUBLE PRECISION,
+    lexicalScore DOUBLE PRECISION,
+    astScore DOUBLE PRECISION,
+    cfgScore DOUBLE PRECISION,
+    verdict VARCHAR(20) CHECK (verdict IN ('CLEAN', 'SUSPICIOUS', 'PLAGIARIZED')),
     checkedAt TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================
+-- System Settings Table
+-- ============================================
+
+CREATE TABLE SystemSettings (
+    settingKey VARCHAR(100) NOT NULL PRIMARY KEY,
+    settingValue TEXT,
+    description TEXT,
+    updatedAt TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed default settings
+INSERT INTO SystemSettings (settingKey, settingValue, description) VALUES
+('jwt.expiration', '604800000', 'JWT token expiration time in milliseconds (default: 24 hours)'),
+('maintenance.mode', 'false', 'Enable or disable maintenance mode (true/false)'),
+('max.upload.size', '57671680', 'Maximum file upload size in bytes (default: 10 MB)'),
+('rate.limit.requests', '200', 'Maximum number of requests allowed per rate limit window'),
+('rate.limit.window.seconds', '60', 'Rate limit window duration in seconds'),
+('plagiarism.winnowing.k', '15', 'K-gram size for Winnowing algorithm (default: 15)'),
+('plagiarism.winnowing.w', '5', 'Window size for Winnowing algorithm (default: 5)'),
+('plagiarism.threshold', '85', 'Similarity percentage threshold to flag plagiarism (default: 85)');
 
 -- ============================================
 -- Indexes

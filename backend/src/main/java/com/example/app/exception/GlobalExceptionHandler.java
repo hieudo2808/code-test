@@ -65,4 +65,30 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.FORBIDDEN)
                 .body(apiResponse);
     }
+
+    @ExceptionHandler(value = org.springframework.security.authentication.DisabledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDisabledException(org.springframework.security.authentication.DisabledException exception) {
+        log.warn("Disabled user tried to login: {}", exception.getMessage());
+        
+        ApiResponse<Void> apiResponse = new ApiResponse<>();
+        apiResponse.setCode(ErrorCode.ACCOUNT_DISABLED.getCode());
+        apiResponse.setMessage(ErrorCode.ACCOUNT_DISABLED.getMessage());
+
+        return ResponseEntity
+                .status(ErrorCode.ACCOUNT_DISABLED.getStatusCode())
+                .body(apiResponse);
+    }
+
+    @ExceptionHandler(value = org.springframework.security.authentication.BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentialsException(org.springframework.security.authentication.BadCredentialsException exception) {
+        log.warn("Bad credentials error: {}", exception.getMessage());
+        
+        ApiResponse<Void> apiResponse = new ApiResponse<>();
+        apiResponse.setCode(ErrorCode.INVALID_CREDENTIALS.getCode());
+        apiResponse.setMessage(ErrorCode.INVALID_CREDENTIALS.getMessage());
+
+        return ResponseEntity
+                .status(ErrorCode.INVALID_CREDENTIALS.getStatusCode())
+                .body(apiResponse);
+    }
 }

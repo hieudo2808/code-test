@@ -14,6 +14,7 @@ public enum ErrorCode {
     EMAIL_EXISTED(1006, "Email existed", HttpStatus.BAD_REQUEST),
     DEFAULT_ROLE_NOT_FOUND(1007, "Default role not found", HttpStatus.BAD_REQUEST),
     ACCOUNT_LOCKED(1008, "Account is locked", HttpStatus.BAD_REQUEST),
+    ACCOUNT_DISABLED(1014, "Account has been disabled", HttpStatus.BAD_REQUEST),
     INVALID_CREDENTIALS(1009, "Invalid credentials", HttpStatus.BAD_REQUEST),
     INVALID_TOKEN(1010, "Invalid token", HttpStatus.BAD_REQUEST),
     UNAUTHENTICATED(1011, "Unauthenticated", HttpStatus.UNAUTHORIZED),

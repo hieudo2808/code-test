@@ -1,5 +1,6 @@
 package com.example.app.dto.response;
 
+import com.example.app.entity.enums.EvaluationType;
 import com.example.app.entity.enums.SubmissionStatus;
 import com.example.app.entity.enums.Verdict;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -18,6 +19,7 @@ public class SubmissionResponse {
     private UUID problemId;
     private String problemTitle;
     private String problemSlug;
+    private EvaluationType problemEvaluationType;
     private UUID contestId;          // Optional - for contest submissions
     
     // Status & Verdict

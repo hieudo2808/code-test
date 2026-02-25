@@ -13,8 +13,6 @@ import java.util.UUID;
 public class TestcaseResponse {
     UUID testcaseId;
     UUID problemId;
-    String inputPath;
-    String outputPath;
     Integer inputSizeKb;
     Integer outputSizeKb;
     Double testcasePoint;

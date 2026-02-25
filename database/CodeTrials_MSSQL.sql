@@ -232,7 +232,7 @@ Create table Submissions (
 	languageId INT NOT NULL,
 	submissionStatus VARCHAR(20) NOT NULL CHECK (submissionStatus IN ('PENDING', 'COMPILING', 'RUNNING', 'EVALUATING', 'NEED_REVIEW', 'DONE', 'ERROR')),
 	finalScore FLOAT(53),
-	finalVerdict VARCHAR(20) CHECK (finalVerdict IN ('ACCEPTED', 'PARTIAL', 'FAILED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT', 'MEMORY_LIMIT', 'SCORED', 'MANUAL')),
+	finalVerdict VARCHAR(20) CHECK (finalVerdict IN ('ACCEPTED', 'PARTIAL', 'FAILED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT', 'SCORED', 'MANUAL')),
 	
 	compileTimeMs FLOAT,
     totalTimeMs FLOAT,
@@ -258,14 +258,14 @@ Create table SubmissionResults (
 	timeMs FLOAT(53),
 	memoryKb FLOAT(53),
 	score FLOAT(53),
-    verdict VARCHAR(20) CHECK (verdict IN ('ACCEPTED', 'PARTIAL', 'FAILED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT', 'MEMORY_LIMIT', 'SCORED', 'MANUAL'))
+    verdict VARCHAR(20) CHECK (verdict IN ('ACCEPTED', 'PARTIAL', 'FAILED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT', 'SCORED', 'MANUAL'))
 )
 
 Create table ManualReview (
 	manualReviewId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
 	submissionId UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Submissions(submissionId) ON DELETE SET NULL,
 	reviewerId UNIQUEIDENTIFIER FOREIGN KEY REFERENCES Users(userId) ON DELETE SET NULL,
-	verdict VARCHAR(20) CHECK (verdict IN ('ACCEPTED', 'PARTIAL', 'FAILED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT', 'MEMORY_LIMIT', 'SCORED', 'MANUAL')),
+	verdict VARCHAR(20) CHECK (verdict IN ('ACCEPTED', 'PARTIAL', 'FAILED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'TIME_LIMIT', 'SCORED', 'MANUAL')),
 	score FLOAT(53),
 	comment NVARCHAR(MAX),
 	reviewedAt DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
@@ -279,7 +279,11 @@ CREATE TABLE PlagiarismChecks (
 	CHECK (submission1Id < submission2Id),
 	UNIQUE (submission1Id, submission2Id),
     similarityScore FLOAT(53),
-    checkedAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+    lexicalScore FLOAT(53),
+    astScore FLOAT(53),
+    cfgScore FLOAT(53),
+    verdict VARCHAR(20) CHECK (verdict IN ('CLEAN', 'SUSPICIOUS', 'PLAGIARIZED')),
+    checkedAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
 );
 
 -- Languages (Judge0 language IDs)
@@ -303,6 +307,24 @@ INSERT INTO Languages (languageId, name, extension, monacoLanguage) VALUES
 (68, 'PHP (7.4)', 'php', 'php'),
 (73, 'Rust (1.40)', 'rs', 'rust'),
 (60, 'Go (1.13)', 'go', 'go');
+
+-- Create the table
+CREATE TABLE SystemSettings (
+	settingKey NVARCHAR(100) NOT NULL PRIMARY KEY,
+	settingValue NVARCHAR(MAX) NULL,
+	description NVARCHAR(500) NULL,
+	updatedAt DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+);
+-- Seed default settings
+INSERT INTO SystemSettings (settingKey, settingValue, description) VALUES
+('jwt.expiration', '604800000', 'JWT token expiration time in milliseconds (default: 24 hours)'),
+('maintenance.mode', 'false', 'Enable or disable maintenance mode (true/false)'),
+('max.upload.size', '57671680', 'Maximum file upload size in bytes (default: 10 MB)'),
+('rate.limit.requests', '200', 'Maximum number of requests allowed per rate limit window'),
+('rate.limit.window.seconds', '60', 'Rate limit window duration in seconds'),
+('plagiarism.winnowing.k', '15', 'K-gram size for Winnowing algorithm (default: 15)'),
+('plagiarism.winnowing.w', '5', 'Window size for Winnowing algorithm (default: 5)'),
+('plagiarism.threshold', '85', 'Similarity percentage threshold to flag plagiarism (default: 85)');
 
 -- Indexes
 CREATE INDEX IX_Submissions_User ON Submissions(submitterId);

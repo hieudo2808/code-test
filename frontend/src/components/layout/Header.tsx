@@ -55,9 +55,7 @@ export function Header({ darkMode, onToggleDarkMode, onToggleSidebar }: HeaderPr
     };
 
     const formatTime = (dateValue: string | number) => {
-        const date = typeof dateValue === "number"
-            ? new Date(dateValue)
-            : new Date(dateValue);
+        const date = typeof dateValue === "number" ? new Date(dateValue) : new Date(dateValue);
         if (isNaN(date.getTime())) return "";
 
         const now = new Date();
@@ -139,9 +137,7 @@ export function Header({ darkMode, onToggleDarkMode, onToggleSidebar }: HeaderPr
                                         <div
                                             key={n.notificationId}
                                             className={`px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${
-                                                !n.isRead
-                                                    ? "bg-red-50/50 dark:bg-red-900/10"
-                                                    : ""
+                                                !n.isRead ? "bg-red-50/50 dark:bg-red-900/10" : ""
                                             }`}
                                             onClick={async () => {
                                                 if (!n.isRead) {
@@ -155,11 +151,13 @@ export function Header({ darkMode, onToggleDarkMode, onToggleSidebar }: HeaderPr
                                                         {!n.isRead && (
                                                             <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" />
                                                         )}
-                                                        <p className={`text-sm truncate ${
-                                                            !n.isRead
-                                                                ? "font-semibold text-gray-900 dark:text-white"
-                                                                : "font-medium text-gray-700 dark:text-gray-300"
-                                                        }`}>
+                                                        <p
+                                                            className={`text-sm truncate ${
+                                                                !n.isRead
+                                                                    ? "font-semibold text-gray-900 dark:text-white"
+                                                                    : "font-medium text-gray-700 dark:text-gray-300"
+                                                            }`}
+                                                        >
                                                             {n.title}
                                                         </p>
                                                     </div>
@@ -207,16 +205,26 @@ export function Header({ darkMode, onToggleDarkMode, onToggleSidebar }: HeaderPr
                             onClick={() => navigate(getProfilePath())}
                             title="View profile"
                         >
-                            <div className="w-8 h-8 rounded-full bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center">
-                                <User className="w-4 h-4 text-white" />
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                                {user.avatarUrl ? (
+                                    <img
+                                        src={user.avatarUrl}
+                                        alt="Avatar"
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center">
+                                        <User className="w-4 h-4 text-white" />
+                                    </div>
+                                )}
                             </div>
-                            <div className="hidden sm:block">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">
+                            <div className="hidden sm:flex sm:flex-col sm:justify-center gap-1">
+                                <span className="text-sm font-semibold text-gray-900 dark:text-white leading-none">
                                     {user.name}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                </span>
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-none">
                                     {getRoleLabel(user.role)}
-                                </p>
+                                </span>
                             </div>
                         </div>
 

@@ -3,7 +3,6 @@ package com.example.app.service;
 import com.example.app.dto.request.auth.LoginRequest;
 import com.example.app.dto.request.auth.RegisterRequest;
 import com.example.app.dto.response.AuthResponse;
-import com.example.app.dto.response.UserResponse;
 import com.example.app.entity.RefreshToken;
 import com.example.app.entity.Roles;
 import com.example.app.entity.Users;
@@ -22,11 +21,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 
@@ -155,10 +154,25 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(tokenEntity);
 
+        com.example.app.dto.response.UserResponse userResponse = userMapper.toUserResponse(user);
+        String avatarUrl = userResponse.getAvatarUrl();
+        if (avatarUrl != null && !avatarUrl.isEmpty() && !avatarUrl.startsWith("http")) {
+            try {
+                String fullUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                        .path("/api/users/")
+                        .path(userResponse.getUserId().toString())
+                        .path("/avatar")
+                        .toUriString();
+                userResponse.setAvatarUrl(fullUrl);
+            } catch (Exception e) {
+                userResponse.setAvatarUrl("/api/users/" + userResponse.getUserId() + "/avatar");
+            }
+        }
+
         return AuthResponse.builder()
                 .token(accessToken)
                 .refreshToken(refreshToken)
-                .user(userMapper.toUserResponse(user))
+                .user(userResponse)
                 .build();
     }
 

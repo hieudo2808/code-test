@@ -2,6 +2,7 @@ package com.example.app.repository;
 
 import com.example.app.entity.PlagiarismCheck;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,7 +12,6 @@ import java.util.UUID;
 
 @Repository
 public interface PlagiarismCheckRepository extends JpaRepository<PlagiarismCheck, UUID> {
-
     @Query("SELECT pc FROM PlagiarismCheck pc " +
            "WHERE pc.submission1.contest.contestId = :contestId " +
            "ORDER BY pc.similarityScore DESC")
@@ -26,7 +26,4 @@ public interface PlagiarismCheckRepository extends JpaRepository<PlagiarismCheck
             @Param("problemId") UUID problemId);
 
     boolean existsBySubmission1SubmissionIdAndSubmission2SubmissionId(UUID sub1Id, UUID sub2Id);
-
-    @Query("DELETE FROM PlagiarismCheck pc WHERE pc.submission1.contest.contestId = :contestId")
-    void deleteByContestId(@Param("contestId") UUID contestId);
 }

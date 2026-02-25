@@ -20,9 +20,6 @@ public interface SubmissionResultRepository extends JpaRepository<SubmissionResu
     Optional<SubmissionResult> findByJudge0Token(String token);
 
     @Query("SELECT COUNT(r) FROM SubmissionResult r WHERE r.submission.submissionId = :submissionId AND r.verdict IS NULL")
-    long countPendingBySubmissionId(@Param("submissionId") UUID submissionId);
-
-    @Query("SELECT COUNT(r) FROM SubmissionResult r WHERE r.submission.submissionId = :submissionId AND r.verdict IS NULL")
     long countUnfinished(@Param("submissionId") UUID submissionId);
 
     @Query("SELECT r FROM SubmissionResult r JOIN FETCH r.submission s JOIN FETCH r.testcase " +

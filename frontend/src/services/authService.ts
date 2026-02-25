@@ -61,7 +61,6 @@ export interface RegisterData {
     name: string;
     email: string;
     password: string;
-    role: UserRole;
 }
 
 export interface AuthResponse {
@@ -121,7 +120,6 @@ export const authService = {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem("token");
         api.post("/auth/logout").catch(() => {});
-        // Navigation should be handled by the component calling logout
     },
 
     getCurrentUser(): User | null {

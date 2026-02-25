@@ -56,11 +56,19 @@ export function PlagiarismDetailPage() {
         return languages.find((l) => l.id === langId)?.monacoLanguage || "plaintext";
     };
 
-    const getSimilarityColor = (similarity: number) => {
-        const pct = similarity * 100;
-        if (pct >= 90) return "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30";
-        if (pct >= 75) return "text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30";
-        return "text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/30";
+    const getVerdictColor = (verdict?: string) => {
+        if (verdict === "PLAGIARIZED")
+            return "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30 ring-1 ring-red-500/30";
+        if (verdict === "SUSPICIOUS")
+            return "text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 ring-1 ring-orange-500/30";
+        return "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30 ring-1 ring-green-500/30";
+    };
+
+    const getVerdictLabel = (verdict?: string) => {
+        if (verdict === "PLAGIARIZED") return "Đạo văn";
+        if (verdict === "SUSPICIOUS") return "Đáng ngờ";
+        if (verdict === "CLEAN") return "An toàn";
+        return "Không rõ";
     };
 
     if (loading) {
@@ -97,23 +105,76 @@ export function PlagiarismDetailPage() {
                             <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                                Chi tiết đạo văn — {result.problemTitle}
-                            </h1>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                                    Chi tiết đạo văn — {result.problemTitle}
+                                </h1>
+                                <span
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${getVerdictColor(result.verdict)}`}
+                                >
+                                    {getVerdictLabel(result.verdict)}
+                                </span>
+                            </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-0.5">
                                 <Clock className="w-3.5 h-3.5" />
-                                Kiểm tra lúc{" "}
-                                {new Date(result.checkedAt).toLocaleString("vi-VN")}
+                                Kiểm tra lúc {new Date(result.checkedAt).toLocaleString("vi-VN")}
                             </p>
                         </div>
                     </div>
 
-                    {/* Similarity Badge */}
-                    <div
-                        className={`px-5 py-3 rounded-2xl font-bold text-2xl ${getSimilarityColor(result.similarity)}`}
-                    >
-                        {(result.similarity * 100).toFixed(1)}%
-                        <span className="text-sm font-medium ml-1 opacity-75">trùng lặp</span>
+                    {/* Overall Similarity Badge */}
+                    <div className="text-right">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Độ trùng lặp tổng thể
+                        </p>
+                        <div
+                            className={`px-5 py-2.5 rounded-2xl font-bold text-2xl inline-block ${getVerdictColor(result.verdict)}`}
+                        >
+                            {(result.similarity * 100).toFixed(1)}%
+                        </div>
+                    </div>
+                </div>
+
+                {/* Score Breakdown Grid */}
+                <div className="grid grid-cols-3 gap-4 mt-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Mức độ 1: Từ Khóa (Lexical)
+                        </p>
+                        <div className="flex items-end justify-between">
+                            <span className="text-xl font-bold text-gray-900 dark:text-white">
+                                {((result.lexicalScore || 0) * 100).toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-gray-400 mt-1 block">
+                                Jaccard / Winnowing
+                            </span>
+                        </div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Mức độ 2: Cấu Trúc (AST)
+                        </p>
+                        <div className="flex items-end justify-between">
+                            <span className="text-xl font-bold text-gray-900 dark:text-white">
+                                {result.astScore ? (result.astScore * 100).toFixed(1) + "%" : "N/A"}
+                            </span>
+                            <span className="text-xs text-gray-400 mt-1 block">
+                                Tree Edit / LCS
+                            </span>
+                        </div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Mức độ 3: Logic (CFG)
+                        </p>
+                        <div className="flex items-end justify-between">
+                            <span className="text-xl font-bold text-gray-900 dark:text-white">
+                                {result.cfgScore ? (result.cfgScore * 100).toFixed(1) + "%" : "N/A"}
+                            </span>
+                            <span className="text-xs text-gray-400 mt-1 block">
+                                Control Flow Heuristic
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -142,7 +203,9 @@ export function PlagiarismDetailPage() {
                                             {getLanguageName(submission1.languageId)}
                                         </span>
                                         <span>
-                                            {new Date(submission1.submittedAt).toLocaleString("vi-VN")}
+                                            {new Date(submission1.submittedAt).toLocaleString(
+                                                "vi-VN"
+                                            )}
                                         </span>
                                     </div>
                                 )}
@@ -187,7 +250,9 @@ export function PlagiarismDetailPage() {
                                             {getLanguageName(submission2.languageId)}
                                         </span>
                                         <span>
-                                            {new Date(submission2.submittedAt).toLocaleString("vi-VN")}
+                                            {new Date(submission2.submittedAt).toLocaleString(
+                                                "vi-VN"
+                                            )}
                                         </span>
                                     </div>
                                 )}

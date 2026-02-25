@@ -31,7 +31,7 @@ public class MaintenanceFilter extends OncePerRequestFilter {
     // Cache maintenance mode value for 30 seconds to avoid DB hit on every request
     private final AtomicReference<Boolean> cachedMaintenanceMode = new AtomicReference<>(null);
     private final AtomicLong cacheTimestamp = new AtomicLong(0);
-    private static final long CACHE_TTL_MS = 30_000;
+    private static final long CACHE_TTL_MS = 5_000;
 
     // Paths that should always be allowed (auth, health, admin settings, actuator, websocket)
     private static final String[] BYPASS_PREFIXES = {
@@ -49,6 +49,11 @@ public class MaintenanceFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // Always allow bypass paths
         String path = request.getRequestURI();

@@ -7,7 +7,6 @@ import org.mapstruct.*;
 
 @Mapper(componentModel = "spring")
 public interface TestcaseMapper {
-
     @Mapping(target = "problemId", source = "problem.problemId")
     TestcaseResponse toResponse(Testcase testcase);
 

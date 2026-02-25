@@ -6,7 +6,6 @@ import { Input } from "~/components/ui/input";
 import {
     Trophy,
     Plus,
-    Edit,
     Trash2,
     Loader2,
     Search,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { Modal } from "~/components/ui/Modal";
 import { contestService, type Contest } from "~/services/contestService";
+import { toast } from "sonner";
 
 export function MyContestsPage() {
     const navigate = useNavigate();
@@ -71,10 +71,14 @@ export function MyContestsPage() {
         if (!deleteModal) return;
         try {
             await contestService.deleteContest(deleteModal.id);
+            setContests((prevContests) =>
+                prevContests.filter((c) => c.contestId !== deleteModal.id)
+            );
             loadContests();
+            toast.success("Đã xóa cuộc thi.");
         } catch (error) {
             console.error("Failed to delete:", error);
-            alert("Không thể xóa cuộc thi.");
+            toast.error("Không thể xóa cuộc thi.");
         }
         setDeleteModal(null);
     };
@@ -124,7 +128,10 @@ export function MyContestsPage() {
         <div className="space-y-6">
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <Link to="/instructor" className="hover:text-gray-900 dark:hover:text-white transition-colors">
+                <Link
+                    to="/instructor"
+                    className="hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
                     Dashboard
                 </Link>
                 <ChevronRight className="w-4 h-4" />
@@ -219,7 +226,9 @@ export function MyContestsPage() {
                                                 {contest.contestName}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4">{getStateBadge(contest.state)}</td>
+                                        <td className="px-6 py-4">
+                                            {getStateBadge(contest.state)}
+                                        </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                                                 <Calendar className="w-3.5 h-3.5" />

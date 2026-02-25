@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Input, TextArea } from "~/components/ui/input";
+import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { ArrowLeft, Plus, Trash2, Search, Loader2 } from "lucide-react";
 import { problemService, type ProblemListItem } from "~/services/problemService";
+import { toast } from "sonner";
 
 interface CreateContestProps {
     onNavigate: (page: string) => void;
@@ -12,12 +13,11 @@ interface CreateContestProps {
 
 interface SelectedProblem {
     problemId: string;
-    score: number;
 }
 
 export function CreateContest({ onNavigate }: CreateContestProps) {
     const [contestName, setContestName] = useState("");
-    const [description, setDescription] = useState("");
+    const [isPublic, setIsPublic] = useState(true);
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
     const [selectedProblems, setSelectedProblems] = useState<SelectedProblem[]>([]);
@@ -49,19 +49,13 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
     );
 
     const addProblem = (problemId: string) => {
-        setSelectedProblems([...selectedProblems, { problemId, score: 100 }]);
+        setSelectedProblems([...selectedProblems, { problemId }]);
         setSearchQuery("");
         setShowProblemSelector(false);
     };
 
     const removeProblem = (problemId: string) => {
         setSelectedProblems(selectedProblems.filter((sp) => sp.problemId !== problemId));
-    };
-
-    const updateProblemScore = (problemId: string, score: number) => {
-        setSelectedProblems(
-            selectedProblems.map((sp) => (sp.problemId === problemId ? { ...sp, score } : sp))
-        );
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -74,26 +68,23 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                 contestName,
                 startTime: new Date(startTime).toISOString(),
                 endTime: new Date(endTime).toISOString(),
-                isPublic: true,
+                isPublic,
             });
 
             // Add problems to contest
             for (const sp of selectedProblems) {
                 await contestService.addProblemToContest(contest.contestId, {
                     problemId: sp.problemId,
-                    maxScore: sp.score,
                 });
             }
 
-            alert("Contest created successfully!");
+            toast.success("Contest created successfully!");
             onNavigate("instructor-dashboard");
         } catch (error) {
             console.error("Error creating contest:", error);
-            alert("Failed to create contest. Please try again.");
+            toast.error("Failed to create contest. Please try again.");
         }
     };
-
-    const totalScore = selectedProblems.reduce((sum, sp) => sum + sp.score, 0);
 
     if (loading) {
         return (
@@ -139,14 +130,24 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                             required
                         />
 
-                        <TextArea
-                            label="Description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Provide a description of the contest, its objectives, and any special rules..."
-                            rows={4}
-                            required
-                        />
+                        <div className="flex items-center gap-2 pt-2">
+                            <input
+                                type="checkbox"
+                                id="isPublic"
+                                checked={isPublic}
+                                onChange={(e) => setIsPublic(e.target.checked)}
+                                className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <label
+                                htmlFor="isPublic"
+                                className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                            >
+                                Công khai{" "}
+                                <span className="text-xs font-normal text-gray-500 ml-1">
+                                    (Bất kỳ ai cũng có thể tự do tham gia nếu biết link)
+                                </span>
+                            </label>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <Input
@@ -177,8 +178,7 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                                     Problems
                                 </h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    {selectedProblems.length} problems selected | Total Score:{" "}
-                                    {totalScore} points
+                                    {selectedProblems.length} problems selected
                                 </p>
                             </div>
                             <Button
@@ -289,19 +289,6 @@ export function CreateContest({ onNavigate }: CreateContestProps) {
                                             </div>
 
                                             <div className="flex items-center gap-3">
-                                                <Input
-                                                    type="number"
-                                                    value={sp.score.toString()}
-                                                    onChange={(e) =>
-                                                        updateProblemScore(
-                                                            sp.problemId,
-                                                            parseInt(e.target.value) || 0
-                                                        )
-                                                    }
-                                                    className="w-24"
-                                                    placeholder="Score"
-                                                />
-
                                                 <Button
                                                     type="button"
                                                     size="sm"

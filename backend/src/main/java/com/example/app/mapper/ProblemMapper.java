@@ -10,7 +10,6 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring", 
         nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface ProblemMapper {
-
     @Mapping(target = "problemId", ignore = true)
     @Mapping(target = "problemCreator", ignore = true)
     @Mapping(target = "createAt", ignore = true)

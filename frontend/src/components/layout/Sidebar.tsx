@@ -9,6 +9,7 @@ import {
     Settings,
     ShieldAlert,
     Bell,
+    BookOpen,
     PanelLeftClose,
     PanelLeftOpen,
     X,
@@ -39,6 +40,7 @@ export function Sidebar({ isOpen, onToggle, isMobile }: SidebarProps) {
         { path: "/instructor/problems", icon: FileText, label: "Problems" },
         { path: "/instructor/contests", icon: Trophy, label: "Contests" },
         { path: "/instructor/plagiarism", icon: ShieldAlert, label: "Plagiarism" },
+        { path: "/instructor/guide", icon: BookOpen, label: "Guide" },
         { path: "/instructor/profile", icon: UserCircle, label: "Profile" },
     ];
 
