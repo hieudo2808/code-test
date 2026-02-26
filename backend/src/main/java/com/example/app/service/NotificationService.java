@@ -65,7 +65,7 @@ public class NotificationService {
                 .title(title)
                 .message(message)
                 .build();
-        notification = notificationRepository.save(notification);
+        notification = notificationRepository.saveAndFlush(notification);
 
         List<Users> users = userRepository.findAllById(userIds);
         for (Users user : users) {
@@ -94,7 +94,7 @@ public class NotificationService {
                 .title(title)
                 .message(message)
                 .build();
-        notification = notificationRepository.save(notification);
+        notification = notificationRepository.saveAndFlush(notification);
 
         List<Users> allUsers = userRepository.findAll();
         for (Users user : allUsers) {
