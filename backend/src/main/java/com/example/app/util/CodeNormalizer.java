@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,7 +21,9 @@ public class CodeNormalizer {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final String WORKER_BATCH_URL = "http://localhost:3000/api/tokenize/batch";
+
+    @Value("${plagiarism.worker.url:http://localhost:3000/api/tokenize/batch}")
+    private String workerBatchUrl;
 
     /**
      * Normalize a single code string by wrapping it in a batch request to the Tree-sitter Node.js worker.
@@ -66,10 +69,11 @@ public class CodeNormalizer {
             String jsonRequest = objectMapper.writeValueAsString(requests);
             HttpEntity<String> entity = new HttpEntity<>(jsonRequest, headers);
 
-            String response = restTemplate.postForObject(WORKER_BATCH_URL, entity, String.class);
+            String response = restTemplate.postForObject(workerBatchUrl, entity, String.class);
 
             if (response != null) {
-                return objectMapper.readValue(response, new TypeReference<Map<UUID, String>>() {});
+                return objectMapper.readValue(response, new TypeReference<>() {
+                });
             }
         } catch (Exception e) {
             log.error("Plagiarism worker batch processing unavailable or failed: {}", e.getMessage());

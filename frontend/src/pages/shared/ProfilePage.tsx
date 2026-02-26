@@ -28,7 +28,10 @@ export function ProfilePage() {
     const [bio, setBio] = useState("");
     const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
     const [profileLoading, setProfileLoading] = useState(false);
-    const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [profileMessage, setProfileMessage] = useState<{
+        type: "success" | "error";
+        text: string;
+    } | null>(null);
 
     // Avatar upload
     const [avatarUploading, setAvatarUploading] = useState(false);
@@ -40,7 +43,10 @@ export function ProfilePage() {
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [passwordLoading, setPasswordLoading] = useState(false);
-    const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [passwordMessage, setPasswordMessage] = useState<{
+        type: "success" | "error";
+        text: string;
+    } | null>(null);
 
     useEffect(() => {
         if (user) {
@@ -113,7 +119,10 @@ export function ProfilePage() {
             return;
         }
         if (newPassword.length < 8) {
-            setPasswordMessage({ type: "error", text: "New password must be at least 8 characters." });
+            setPasswordMessage({
+                type: "error",
+                text: "New password must be at least 8 characters.",
+            });
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -133,7 +142,10 @@ export function ProfilePage() {
             setNewPassword("");
             setConfirmPassword("");
         } catch {
-            setPasswordMessage({ type: "error", text: "Failed to change password. Check your current password." });
+            setPasswordMessage({
+                type: "error",
+                text: "Failed to change password. Check your current password.",
+            });
         } finally {
             setPasswordLoading(false);
         }
@@ -141,10 +153,14 @@ export function ProfilePage() {
 
     const getRoleLabel = (role?: string) => {
         switch (role) {
-            case "student": return "Student";
-            case "instructor": return "Instructor";
-            case "admin": return "Admin";
-            default: return "";
+            case "student":
+                return "Student";
+            case "instructor":
+                return "Instructor";
+            case "admin":
+                return "Admin";
+            default:
+                return "";
         }
     };
 
@@ -164,7 +180,7 @@ export function ProfilePage() {
                     <form onSubmit={handleProfileSubmit} className="space-y-6">
                         {/* Avatar */}
                         <div className="flex flex-col sm:flex-row items-center gap-6">
-                            <div className="relative group">
+                            <div className="relative group/avatar">
                                 <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                                     {avatarUrl ? (
                                         <img
@@ -180,7 +196,7 @@ export function ProfilePage() {
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={avatarUploading}
-                                    className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                    className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer"
                                 >
                                     {avatarUploading ? (
                                         <Loader2 className="w-6 h-6 text-white animate-spin" />
@@ -304,7 +320,11 @@ export function ProfilePage() {
                                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-(--text-secondary) hover:text-(--text-primary)"
                                 >
-                                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    {showCurrentPassword ? (
+                                        <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                        <Eye className="w-4 h-4" />
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -325,7 +345,11 @@ export function ProfilePage() {
                                     onClick={() => setShowNewPassword(!showNewPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-(--text-secondary) hover:text-(--text-primary)"
                                 >
-                                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    {showNewPassword ? (
+                                        <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                        <Eye className="w-4 h-4" />
+                                    )}
                                 </button>
                             </div>
                         </div>
