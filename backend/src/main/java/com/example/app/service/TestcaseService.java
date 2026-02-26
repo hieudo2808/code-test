@@ -11,6 +11,7 @@ import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
 import com.example.app.mapper.TestcaseMapper;
 import com.example.app.repository.ProblemRepository;
+import com.example.app.repository.SubmissionResultRepository;
 import com.example.app.repository.TestcaseRepository;
 import com.example.app.security.SecurityHelper;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ import java.util.UUID;
 public class TestcaseService {
     private final TestcaseRepository testcaseRepository;
     private final ProblemRepository problemRepository;
+    private final SubmissionResultRepository submissionResultRepository;
     private final TestcaseMapper testcaseMapper;
     private final S3StorageService storageService;
     private final SecurityHelper securityHelper;
@@ -226,6 +228,7 @@ public class TestcaseService {
         storageService.delete(testcase.getInputPath());
         storageService.delete(testcase.getOutputPath());
 
+        submissionResultRepository.deleteByTestcaseTestcaseId(testcaseId);
         testcaseRepository.delete(testcase);
         syncMaxScore(testcase.getProblem());
         log.info("Deleted testcase: {}", testcaseId);

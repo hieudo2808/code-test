@@ -190,6 +190,28 @@ export function SubmissionDetailPage() {
         return <XCircle className="w-5 h-5 text-red-500" />;
     };
 
+    const formatVerdict = (verdict?: string | null) => {
+        if (!verdict) return "-";
+        switch (verdict) {
+            case "ACCEPTED":
+                return "Accepted";
+            case "MEMORY_LIMIT":
+                return "Memory Limit Exceeded";
+            case "TIME_LIMIT":
+                return "Time Limit Exceeded";
+            case "FAILED":
+                return "Failed";
+            case "COMPILE_ERROR":
+                return "Compile Error";
+            case "RUNTIME_ERROR":
+                return "Runtime Error";
+            case "PARTIAL":
+                return "Partial";
+            default:
+                return verdict;
+        }
+    };
+
     return (
         <div className="flex gap-6">
             {/* Main content */}
@@ -266,7 +288,7 @@ export function SubmissionDetailPage() {
                                 <p className="text-sm font-medium text-green-600 dark:text-green-400 mt-3 flex items-center gap-1.5">
                                     <CheckCircle className="w-4 h-4" />
                                     Đã chấm điểm thành công! Điểm: {submission.score}/
-                                    {submission.maxScore} — {submission.verdict}
+                                    {submission.maxScore} — {formatVerdict(submission.verdict)}
                                 </p>
                             )}
                             {gradeError && (
@@ -302,11 +324,7 @@ export function SubmissionDetailPage() {
                                         <TableCell className="font-medium">
                                             {tc.score ?? 0}
                                         </TableCell>
-                                        <TableCell>
-                                            {tc.verdict === "ACCEPTED"
-                                                ? "Accepted"
-                                                : tc.verdict || "-"}
-                                        </TableCell>
+                                        <TableCell>{formatVerdict(tc.verdict)}</TableCell>
                                         <TableCell>{tc.timeMs != null ? tc.timeMs : "-"}</TableCell>
                                         <TableCell>
                                             {tc.memoryKb != null

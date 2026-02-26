@@ -55,27 +55,11 @@ public class ResultProcessor {
         result.setTimeMs(payload.getTime() != null ? payload.getTime() * 1000 : null);
         result.setMemoryKb(payload.getMemory() != null ? payload.getMemory().doubleValue() : null);
 
-        // Double-check resource limits even if Judge0 says Accepted
-        if (verdict == Verdict.ACCEPTED) {
-            Problem problem = result.getSubmission().getProblem();
-
-            if (problem.getMemoryLimit() != null && payload.getMemory() != null) {
-                int memoryLimitKb = problem.getMemoryLimit() * 1024;
-                if (payload.getMemory() > memoryLimitKb) {
-                    verdict = Verdict.MEMORY_LIMIT;
-                    log.warn("Memory limit exceeded for token {}: used={}KB, limit={}KB",
-                            payload.getToken(), payload.getMemory(), memoryLimitKb);
-                }
-            }
-
-            if (problem.getTimeLimit() != null && payload.getTime() != null) {
-                if (payload.getTime() > problem.getTimeLimit()) {
-                    verdict = Verdict.TIME_LIMIT;
-                    log.warn("Time limit exceeded for token {}: used={}s, limit={}s",
-                            payload.getToken(), payload.getTime(), problem.getTimeLimit());
-                }
-            }
-        }
+        Problem problem = result.getSubmission().getProblem();
+        Double usedMemoryKb = payload.getMemory() != null ? payload.getMemory().doubleValue() : null;
+        Double usedTimeSecs = payload.getTime() != null ? payload.getTime() : null;
+        
+        verdict = enforceResourceLimits(verdict, problem, usedMemoryKb, usedTimeSecs, "token " + payload.getToken());
 
         EvaluationType evalType = result.getSubmission().getProblem().getEvaluationType();
         
@@ -138,7 +122,12 @@ public class ResultProcessor {
         result.setTimeMs(timeMs);
         result.setMemoryKb(memoryKb);
 
-        EvaluationType evalType = result.getSubmission().getProblem().getEvaluationType();
+        Problem problem = result.getSubmission().getProblem();
+        Double usedTimeSecs = timeMs != null ? timeMs / 1000.0 : null;
+        
+        verdict = enforceResourceLimits(verdict, problem, memoryKb, usedTimeSecs, "recovered result " + result.getSubmissionResultId());
+
+        EvaluationType evalType = problem.getEvaluationType();
 
         // HEURISTIC + ACCEPTED → don't set verdict/score, let scorer decide
         if (evalType == EvaluationType.HEURISTIC && verdict == Verdict.ACCEPTED) {
@@ -193,5 +182,32 @@ public class ResultProcessor {
     static String truncate(String s) {
         if (s == null) return null;
         return s.length() > 500 ? s.substring(0, 500) : s;
+    }
+
+    private Verdict enforceResourceLimits(Verdict currentVerdict, Problem problem, Double usedMemoryKb, Double usedTimeSecs, String logIdentifier) {
+        if (currentVerdict == null || currentVerdict == Verdict.COMPILE_ERROR) {
+            return currentVerdict;
+        }
+
+        Verdict newVerdict = currentVerdict;
+
+        if (problem.getMemoryLimit() != null && usedMemoryKb != null) {
+            int memoryLimitKb = problem.getMemoryLimit() * 1024;
+            if (usedMemoryKb > memoryLimitKb) {
+                newVerdict = Verdict.MEMORY_LIMIT;
+                log.warn("Memory limit exceeded for {}: used={}KB, limit={}KB",
+                        logIdentifier, usedMemoryKb, memoryLimitKb);
+            }
+        }
+
+        if (problem.getTimeLimit() != null && usedTimeSecs != null) {
+            if (usedTimeSecs > problem.getTimeLimit()) {
+                newVerdict = Verdict.TIME_LIMIT;
+                log.warn("Time limit exceeded for {}: used={}s, limit={}s",
+                        logIdentifier, usedTimeSecs, problem.getTimeLimit());
+            }
+        }
+
+        return newVerdict;
     }
 }

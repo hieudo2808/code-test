@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
@@ -92,7 +93,7 @@ public class SubmissionController {
             @RequestParam(required = false) String submitterId,
             @RequestParam(required = false) String verdict,
             @PageableDefault(size = 20, sort = "createAt",
-                    direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+                    direction = Sort.Direction.DESC) Pageable pageable) {
         
         return ApiResponse.<Page<SubmissionResponse>>builder()
                 .result(submissionService.searchProblemSubmissions(

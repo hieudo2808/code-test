@@ -59,7 +59,12 @@ public class SubmissionDispatcher {
             List<CompletableFuture<String>> inputFutures = testcases.stream()
                     .map(tc -> CompletableFuture.supplyAsync(() -> readFromS3(tc.getInputPath())))
                     .toList();
+            List<CompletableFuture<String>> expectedOutputFutures = testcases.stream()
+                    .map(tc -> CompletableFuture.supplyAsync(() -> readFromS3(tc.getOutputPath())))
+                    .toList();
+            
             CompletableFuture.allOf(inputFutures.toArray(new CompletableFuture[0])).join();
+            CompletableFuture.allOf(expectedOutputFutures.toArray(new CompletableFuture[0])).join();
 
             Double cpuTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0;
             Double wallTimeLimit = Math.max(1.0, problem.getTimeLimit() != null ? problem.getTimeLimit() * 2 : 10.0);
@@ -68,16 +73,23 @@ public class SubmissionDispatcher {
             String compilerOptions = null;
             Integer langId = submission.getLanguageId();
             if (langId == 50 || langId == 54) {
-                compilerOptions = "-O2 -Wall -lm";
+                compilerOptions = "-O2 -Wall -Wextra -Werror=return-type -Werror=uninitialized -Werror=array-bounds -lm -fstack-protector-strong -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer";
             }
 
             List<Judge0Request> batchRequests = new ArrayList<>();
             for (int i = 0; i < testcases.size(); i++) {
                 String input = inputFutures.get(i).join();
+                String expectedOutput = expectedOutputFutures.get(i).join();
+
+                log.info("[DISPATCHER] Testcase {}: input length={}, expectedOutput length={}",
+                        testcases.get(i).getTestcaseId(), input.length(), expectedOutput.length());
+                log.info("[DISPATCHER] expectedOutput snippet: '{}'", expectedOutput.substring(0, Math.min(50, expectedOutput.length())));
+
                 batchRequests.add(Judge0Request.builder()
                         .languageId(submission.getLanguageId())
                         .sourceCode(submission.getSourceCode())
                         .stdin(input)
+                        .expectedOutput(expectedOutput)
                         .cpuTimeLimit(cpuTimeLimit)
                         .wallTimeLimit(wallTimeLimit)
                         .memoryLimit(memoryLimit)

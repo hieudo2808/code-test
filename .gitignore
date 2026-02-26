@@ -25,3 +25,4 @@ Thumbs.db
 *.env
 !*.env.example
 !*.example
+judge/judge0.conf
