@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, Navigate } from "react-router-dom";
 import { Code2, Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { useAuth } from "~/contexts/AuthContext";
 import { getDefaultPathForRole } from "~/components/auth/ProtectedRoute";
@@ -14,8 +14,20 @@ export function RegisterPage() {
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    const { register } = useAuth();
+    const { register, isAuthenticated, user, isLoading: authLoading } = useAuth();
     const navigate = useNavigate();
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-red-500 border-t-transparent"></div>
+            </div>
+        );
+    }
+
+    if (isAuthenticated && user) {
+        return <Navigate to={getDefaultPathForRole(user.role)} replace />;
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
