@@ -242,6 +242,16 @@ public class SubmissionService {
         return submissionMapper.toResponse(submission);
     }
 
+    @Transactional
+    @PreAuthorize("hasAuthority('SUBMISSION_DELETE') or hasAuthority('SUBMISSION_READ_ALL')")
+    public void deleteSubmission(UUID submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+
+        submissionRepository.delete(submission);
+        log.info("Deleted submission: {}", submissionId);
+    }
+
     @PreAuthorize("hasAuthority('SUBMISSION_READ_SELF') or hasAuthority('SUBMISSION_READ_ALL')")
     public TestcaseDetailResponse getTestcaseDetail(UUID submissionId, UUID testcaseId) {
         Submission submission = submissionRepository.findById(submissionId)

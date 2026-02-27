@@ -127,4 +127,12 @@ public class SubmissionController {
                 .result(submissionService.getTestcaseDetail(submissionId, testcaseId))
                 .build();
     }
+
+    @DeleteMapping("/{submissionId}")
+    public ApiResponse<Void> deleteSubmission(@PathVariable UUID submissionId) {
+        submissionService.deleteSubmission(submissionId);
+        return ApiResponse.<Void>builder()
+                .message("Submission deleted successfully")
+                .build();
+    }
 }

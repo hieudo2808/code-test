@@ -28,7 +28,8 @@ public class SubmissionMapper {
                 .submittedAt(submission.getCreateAt())
                 .submitterId(submission.getSubmitter() != null ? submission.getSubmitter().getUserId() : null)
                 .submitterName(submission.getSubmitter() != null ? submission.getSubmitter().getFullName() : null)
-                .languageId(submission.getLanguageId());
+                .languageId(submission.getLanguageId())
+                .totalTimeMs(submission.getTotalTimeMs());
 
         // Add contest info if applicable
         Contest contest = submission.getContest();
@@ -56,9 +57,8 @@ public class SubmissionMapper {
     public SubmissionResponse toResponseWithResults(Submission submission, List<SubmissionResult> results, boolean showHiddenDetails) {
         SubmissionResponse response = toResponse(submission);
 
-        // Include source code and timing in detail view
+        // Include source code in detail view
         response.setSourceCode(submission.getSourceCode());
-        response.setTotalTimeMs(submission.getTotalTimeMs());
 
         // Extract message from first CE/RTE result
         if (submission.getSubmissionStatus() == SubmissionStatus.DONE) {

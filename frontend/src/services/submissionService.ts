@@ -129,4 +129,8 @@ export const submissionService = {
         const response = await api.put(`/submissions/${submissionId}/grade`, data);
         return response.data.result;
     },
+
+    async deleteSubmission(submissionId: string): Promise<void> {
+        await api.delete(`/submissions/${submissionId}`);
+    },
 };

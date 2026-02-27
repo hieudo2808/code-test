@@ -3,9 +3,19 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Loader2, ChevronRight, ChevronLeft, ClipboardList, ExternalLink } from "lucide-react";
+import {
+    Loader2,
+    ChevronRight,
+    ChevronLeft,
+    ClipboardList,
+    ExternalLink,
+    Trash2,
+} from "lucide-react";
 import { submissionService, type Submission } from "~/services/submissionService";
 import { problemService, type Problem } from "~/services/problemService";
+
+import { Modal } from "~/components/ui/Modal";
+import { toast } from "sonner";
 
 const VERDICT_OPTIONS = [
     { value: "", label: "Tất cả" },
@@ -33,6 +43,12 @@ export function ProblemSubmissionsPage() {
 
     const [filterSubmitterId, setFilterSubmitterId] = useState("");
     const [filterVerdict, setFilterVerdict] = useState("");
+
+    const [deleteModal, setDeleteModal] = useState<{
+        isOpen: boolean;
+        id: string;
+        title: string;
+    } | null>(null);
 
     useEffect(() => {
         if (!problemId) return;
@@ -69,6 +85,21 @@ export function ProblemSubmissionsPage() {
     const handleFilter = () => {
         setPage(0);
         loadSubmissions();
+    };
+
+    const handleDelete = async () => {
+        if (!deleteModal) return;
+        try {
+            await submissionService.deleteSubmission(deleteModal.id);
+            toast.success("Đã xóa bài nộp.");
+            setSubmissions(submissions.filter((s) => s.submissionId !== deleteModal.id));
+            setTotalElements((prev) => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error("Failed to delete submission:", error);
+            toast.error("Không thể xóa bài nộp này.");
+        } finally {
+            setDeleteModal(null);
+        }
     };
 
     const getVerdictBadge = (verdict?: string) => {
@@ -237,17 +268,34 @@ export function ProblemSubmissionsPage() {
                                             {s.totalTimeMs != null ? `${s.totalTimeMs}ms` : "—"}
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/instructor/submissions/${s.submissionId}`
-                                                    )
-                                                }
-                                            >
-                                                <ExternalLink className="w-4 h-4" />
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/instructor/submissions/${s.submissionId}`
+                                                        )
+                                                    }
+                                                    title="Chi tiết"
+                                                >
+                                                    <ExternalLink className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() =>
+                                                        setDeleteModal({
+                                                            isOpen: true,
+                                                            id: s.submissionId,
+                                                            title: `bài nộp của ${s.submitterName}`,
+                                                        })
+                                                    }
+                                                    title="Xóa bài nộp"
+                                                >
+                                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -283,6 +331,30 @@ export function ProblemSubmissionsPage() {
                     </div>
                 )}
             </Card>
+
+            {/* Delete Modal */}
+            {deleteModal && (
+                <Modal
+                    isOpen={deleteModal.isOpen}
+                    onClose={() => setDeleteModal(null)}
+                    title="Xóa bài nộp"
+                    footer={
+                        <>
+                            <Button variant="outline" onClick={() => setDeleteModal(null)}>
+                                Hủy
+                            </Button>
+                            <Button variant="danger" onClick={handleDelete}>
+                                Xóa
+                            </Button>
+                        </>
+                    }
+                >
+                    <p className="text-gray-700 dark:text-gray-300">
+                        Bạn có chắc chắn muốn xóa <strong>{deleteModal.title}</strong>? Hành động
+                        này không thể hoàn tác.
+                    </p>
+                </Modal>
+            )}
         </div>
     );
 }

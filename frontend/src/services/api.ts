@@ -38,7 +38,18 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (
+            response.data &&
+            response.data.result &&
+            response.data.result.page &&
+            Array.isArray(response.data.result.content)
+        ) {
+            const result = response.data.result;
+            Object.assign(result, result.page);
+        }
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
 
