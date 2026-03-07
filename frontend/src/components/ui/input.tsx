@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useEffect, useState, memo } from "react";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label?: string;
@@ -54,7 +54,7 @@ interface LargeTextAreaProps extends Omit<
     onChange: (val: string) => void;
 }
 
-export function LargeTextArea({
+export const LargeTextArea = memo(function LargeTextArea({
     label,
     error,
     className = "",
@@ -62,18 +62,16 @@ export function LargeTextArea({
     onChange,
     ...props
 }: LargeTextAreaProps) {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [localValue, setLocalValue] = useState(value);
 
     // Sync only when incoming value changes from outside (e.g. loaded from API)
     useEffect(() => {
-        if (textareaRef.current && textareaRef.current.value !== value) {
-            textareaRef.current.value = value;
-        }
+        setLocalValue(value);
     }, [value]);
 
     const handleBlur = () => {
-        if (textareaRef.current) {
-            onChange(textareaRef.current.value);
+        if (localValue !== value) {
+            onChange(localValue);
         }
     };
 
@@ -85,8 +83,8 @@ export function LargeTextArea({
                 </label>
             )}
             <textarea
-                ref={textareaRef}
-                defaultValue={value}
+                value={localValue}
+                onChange={(e) => setLocalValue(e.target.value)}
                 onBlur={handleBlur}
                 spellCheck={false}
                 autoComplete="off"
@@ -98,7 +96,7 @@ export function LargeTextArea({
             {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
         </div>
     );
-}
+});
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
     label?: string;

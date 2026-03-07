@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input, TextArea, LargeTextArea } from "~/components/ui/input";
@@ -27,6 +27,126 @@ interface Testcase {
     score: number;
     isHidden: boolean;
 }
+
+const TestcaseEditor = React.memo<{
+    index: number;
+    tc: Testcase;
+    onUpdate: (index: number, field: keyof Testcase, value: any) => void;
+    onRemove: (index: number) => void;
+}>(({ index, tc, onUpdate, onRemove }) => {
+    return (
+        <div className="p-4 bg-(--bg-secondary) rounded-lg border border-(--border-color) space-y-4">
+            <div className="flex items-center justify-between">
+                <h4 className="font-medium text-(--text-primary)">
+                    Test Case #{index + 1}{" "}
+                    {tc.id && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">
+                            Existing
+                        </span>
+                    )}
+                </h4>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    onClick={() => onRemove(index)}
+                >
+                    <Trash2 className="w-4 h-4" />
+                </Button>
+            </div>
+
+            {tc.id ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <LargeTextArea
+                        label="Input"
+                        value={tc.input}
+                        onChange={(val) => onUpdate(index, "input", val)}
+                        rows={3}
+                    />
+                    <LargeTextArea
+                        label="Expected Output"
+                        value={tc.output}
+                        onChange={(val) => onUpdate(index, "output", val)}
+                        rows={3}
+                    />
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <LargeTextArea
+                        label="Input"
+                        value={tc.input}
+                        onChange={(val) => onUpdate(index, "input", val)}
+                        placeholder="Enter test case input..."
+                        rows={3}
+                    />
+                    {tc.mode === "manual" ? (
+                        <LargeTextArea
+                            label="Expected Output"
+                            value={tc.output}
+                            onChange={(val) => onUpdate(index, "output", val)}
+                            placeholder="Enter expected output..."
+                            rows={3}
+                        />
+                    ) : (
+                        <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg h-full">
+                            <p className="text-sm text-gray-500 text-center">
+                                Output will be generated using Solution Code on submit
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-6">
+                {!tc.id && (
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                checked={tc.mode === "manual"}
+                                onChange={() => onUpdate(index, "mode", "manual")}
+                                className="w-4 h-4 text-primary"
+                            />
+                            <span className="text-sm text-(--text-secondary)">Manual Output</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                checked={tc.mode === "auto"}
+                                onChange={() => onUpdate(index, "mode", "auto")}
+                                className="w-4 h-4 text-primary"
+                            />
+                            <span className="text-sm text-(--text-secondary)">
+                                Auto-generate Output
+                            </span>
+                        </label>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-4 ml-auto">
+                    <div className="w-24">
+                        <Input
+                            label="Score"
+                            type="number"
+                            value={tc.score}
+                            onChange={(e) => onUpdate(index, "score", parseFloat(e.target.value))}
+                            min={0}
+                        />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer mt-6">
+                        <input
+                            type="checkbox"
+                            checked={!tc.isHidden}
+                            onChange={(e) => onUpdate(index, "isHidden", !e.target.checked)}
+                            className="w-4 h-4 text-primary rounded"
+                        />
+                        <span className="text-sm text-(--text-secondary)">Visible to students</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    );
+});
 
 export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
     const isEditMode = !!problemId;
@@ -141,11 +261,13 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
         setTestcases(testcases.filter((_, i) => i !== index));
     };
 
-    const handleUpdateTestcase = (index: number, field: keyof Testcase, value: any) => {
-        const newTestcases = [...testcases];
-        newTestcases[index] = { ...newTestcases[index], [field]: value };
-        setTestcases(newTestcases);
-    };
+    const handleUpdateTestcase = useCallback((index: number, field: keyof Testcase, value: any) => {
+        setTestcases((prev) => {
+            const newTestcases = [...prev];
+            newTestcases[index] = { ...newTestcases[index], [field]: value };
+            return newTestcases;
+        });
+    }, []);
 
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -439,156 +561,13 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                         </CardHeader>
                         <CardBody className="space-y-6">
                             {testcases.map((tc, index) => (
-                                <div
+                                <TestcaseEditor
                                     key={index}
-                                    className="p-4 bg-(--bg-secondary) rounded-lg border border-(--border-color) space-y-4"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="font-medium text-(--text-primary)">
-                                            Test Case #{index + 1}{" "}
-                                            {tc.id && (
-                                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">
-                                                    Existing
-                                                </span>
-                                            )}
-                                        </h4>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                            onClick={() => handleRemoveTestcase(index)}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-
-                                    {tc.id ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <LargeTextArea
-                                                label="Input"
-                                                value={tc.input}
-                                                onChange={(val) =>
-                                                    handleUpdateTestcase(index, "input", val)
-                                                }
-                                                rows={3}
-                                            />
-                                            <LargeTextArea
-                                                label="Expected Output"
-                                                value={tc.output}
-                                                onChange={(val) =>
-                                                    handleUpdateTestcase(index, "output", val)
-                                                }
-                                                rows={3}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <LargeTextArea
-                                                label="Input"
-                                                value={tc.input}
-                                                onChange={(val) =>
-                                                    handleUpdateTestcase(index, "input", val)
-                                                }
-                                                placeholder="Enter test case input..."
-                                                rows={3}
-                                            />
-                                            {tc.mode === "manual" ? (
-                                                <LargeTextArea
-                                                    label="Expected Output"
-                                                    value={tc.output}
-                                                    onChange={(val) =>
-                                                        handleUpdateTestcase(index, "output", val)
-                                                    }
-                                                    placeholder="Enter expected output..."
-                                                    rows={3}
-                                                />
-                                            ) : (
-                                                <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg h-full">
-                                                    <p className="text-sm text-gray-500 text-center">
-                                                        Output will be generated using Solution Code
-                                                        on submit
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <div className="flex flex-wrap items-center gap-6">
-                                        {!tc.id && (
-                                            <div className="flex items-center gap-4">
-                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                    <input
-                                                        type="radio"
-                                                        checked={tc.mode === "manual"}
-                                                        onChange={() =>
-                                                            handleUpdateTestcase(
-                                                                index,
-                                                                "mode",
-                                                                "manual"
-                                                            )
-                                                        }
-                                                        className="w-4 h-4 text-primary"
-                                                    />
-                                                    <span className="text-sm text-(--text-secondary)">
-                                                        Manual Output
-                                                    </span>
-                                                </label>
-                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                    <input
-                                                        type="radio"
-                                                        checked={tc.mode === "auto"}
-                                                        onChange={() =>
-                                                            handleUpdateTestcase(
-                                                                index,
-                                                                "mode",
-                                                                "auto"
-                                                            )
-                                                        }
-                                                        className="w-4 h-4 text-primary"
-                                                    />
-                                                    <span className="text-sm text-(--text-secondary)">
-                                                        Auto-generate Output
-                                                    </span>
-                                                </label>
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center gap-4 ml-auto">
-                                            <div className="w-24">
-                                                <Input
-                                                    label="Score"
-                                                    type="number"
-                                                    value={tc.score}
-                                                    onChange={(e) =>
-                                                        handleUpdateTestcase(
-                                                            index,
-                                                            "score",
-                                                            parseFloat(e.target.value)
-                                                        )
-                                                    }
-                                                    min={0}
-                                                />
-                                            </div>
-                                            <label className="flex items-center gap-2 cursor-pointer mt-6">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!tc.isHidden}
-                                                    onChange={(e) =>
-                                                        handleUpdateTestcase(
-                                                            index,
-                                                            "isHidden",
-                                                            !e.target.checked
-                                                        )
-                                                    }
-                                                    className="w-4 h-4 text-primary rounded"
-                                                />
-                                                <span className="text-sm text-(--text-secondary)">
-                                                    Visible to students
-                                                </span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
+                                    index={index}
+                                    tc={tc}
+                                    onUpdate={handleUpdateTestcase}
+                                    onRemove={handleRemoveTestcase}
+                                />
                             ))}
                         </CardBody>
                     </Card>
