@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Input, TextArea } from "~/components/ui/input";
+import { Input, TextArea, LargeTextArea } from "~/components/ui/input";
 import { CodeEditor } from "~/components/ui/CodeEditor";
 import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import {
@@ -464,56 +464,40 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
 
                                     {tc.id ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <TextArea
+                                            <LargeTextArea
                                                 label="Input"
                                                 value={tc.input}
-                                                onChange={(e) =>
-                                                    handleUpdateTestcase(
-                                                        index,
-                                                        "input",
-                                                        e.target.value
-                                                    )
+                                                onChange={(val) =>
+                                                    handleUpdateTestcase(index, "input", val)
                                                 }
                                                 rows={3}
                                             />
-                                            <TextArea
+                                            <LargeTextArea
                                                 label="Expected Output"
                                                 value={tc.output}
-                                                onChange={(e) =>
-                                                    handleUpdateTestcase(
-                                                        index,
-                                                        "output",
-                                                        e.target.value
-                                                    )
+                                                onChange={(val) =>
+                                                    handleUpdateTestcase(index, "output", val)
                                                 }
                                                 rows={3}
                                             />
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <TextArea
+                                            <LargeTextArea
                                                 label="Input"
                                                 value={tc.input}
-                                                onChange={(e) =>
-                                                    handleUpdateTestcase(
-                                                        index,
-                                                        "input",
-                                                        e.target.value
-                                                    )
+                                                onChange={(val) =>
+                                                    handleUpdateTestcase(index, "input", val)
                                                 }
                                                 placeholder="Enter test case input..."
                                                 rows={3}
                                             />
                                             {tc.mode === "manual" ? (
-                                                <TextArea
+                                                <LargeTextArea
                                                     label="Expected Output"
                                                     value={tc.output}
-                                                    onChange={(e) =>
-                                                        handleUpdateTestcase(
-                                                            index,
-                                                            "output",
-                                                            e.target.value
-                                                        )
+                                                    onChange={(val) =>
+                                                        handleUpdateTestcase(index, "output", val)
                                                     }
                                                     placeholder="Enter expected output..."
                                                     rows={3}
