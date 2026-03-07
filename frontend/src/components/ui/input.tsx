@@ -88,6 +88,10 @@ export function LargeTextArea({
                 ref={textareaRef}
                 defaultValue={value}
                 onBlur={handleBlur}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
                 className={`w-full px-4 py-3 bg-(--bg-primary) border-2 border-(--border-color) rounded-lg text-(--text-primary) placeholder-(--text-tertiary) focus:outline-none focus:ring-2 focus:ring-(--primary-500) focus:border-transparent transition-all font-mono text-sm whitespace-pre ${className}`}
                 {...props}
             />
