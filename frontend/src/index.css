@@ -3,6 +3,12 @@
 
 @custom-variant dark (&:where(.dark *));
 
+@theme {
+    --color-background: var(--bg-primary);
+    --color-foreground: var(--text-primary);
+    --color-border: var(--border-color);
+}
+
 /* --- Biến màu Global --- */
 :root {
     --bg-app: #ffffff;
