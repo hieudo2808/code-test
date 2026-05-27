@@ -41,7 +41,7 @@ public class UserServices {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final SecurityHelper securityHelper;
-    private final S3StorageService s3StorageService;
+    private final R2StorageService r2StorageService;
 
     // ==================== ADMIN OPERATIONS ====================
 
@@ -161,7 +161,7 @@ public class UserServices {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         try {
-            String avatarUrl = s3StorageService.uploadAvatar(
+            String avatarUrl = r2StorageService.uploadAvatar(
                     userId,
                     file.getOriginalFilename(),
                     file.getInputStream(),
@@ -210,7 +210,7 @@ public class UserServices {
         }
 
         try {
-            java.io.InputStream inputStream = s3StorageService.getFile(avatarPath);
+            java.io.InputStream inputStream = r2StorageService.getFile(avatarPath);
             Resource resource = new InputStreamResource(inputStream);
 
             MediaType mediaType = MediaType.IMAGE_JPEG;

@@ -2,6 +2,7 @@ package com.example.app.service;
 
 import com.example.app.dto.judge0.Judge0Request;
 import com.example.app.dto.judge0.Judge0Response;
+import com.example.app.dto.judge0.Judge0CallbackPayload;
 import com.example.app.entity.Problem;
 import com.example.app.entity.Testcase;
 import com.example.app.exception.AppException;
@@ -10,6 +11,8 @@ import com.example.app.repository.ProblemRepository;
 import com.example.app.repository.TestcaseRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,18 +21,33 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OutputGeneratorService {
+public class OutputGeneratorService implements org.springframework.beans.factory.InitializingBean {
+    private static final long POLL_TIMEOUT_MS = 300 * 1000L;
+    private static final long POLL_INTERVAL_MS = 1500L;
+
     private final Judge0Client judge0Client;
-    private final S3StorageService storageService;
+    private final R2StorageService storageService;
     private final ProblemRepository problemRepository;
     private final TestcaseRepository testcaseRepository;
+    private final StringRedisTemplate redisTemplate;
+    private final NotificationService notificationService;
+    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
-    @Transactional
-    public int generateOutputs(UUID problemId) {
+    @Value("${judge0.callback-url}")
+    private String callbackUrl;
+
+    @Override
+    public void afterPropertiesSet() {
+        this.transactionTemplate = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+    }
+
+    public void generateOutputsAsync(UUID problemId) {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
 
@@ -38,16 +56,27 @@ public class OutputGeneratorService {
         }
 
         List<Testcase> testcases = testcaseRepository.findByProblemProblemId(problemId);
-        if (testcases.isEmpty()) return 0;
+        if (testcases.isEmpty()) return;
 
         double cpuTimeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 10.0;
         double wallTimeLimit = cpuTimeLimit * 2;
         int memoryLimit = problem.getMemoryLimit() != null ? problem.getMemoryLimit() * 1024 : 256000;
 
+        // Fetch inputs concurrently
+        List<java.util.concurrent.CompletableFuture<String>> inputFutures = testcases.stream()
+                .map(tc -> java.util.concurrent.CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getInputPath())))
+                .toList();
+
+        java.util.concurrent.CompletableFuture.allOf(inputFutures.toArray(new java.util.concurrent.CompletableFuture[0])).join();
+
         // Build all requests in one go
         List<Judge0Request> requests = new ArrayList<>();
-        for (Testcase tc : testcases) {
-            String input = readFile(tc.getInputPath());
+        List<String> testcaseIds = new ArrayList<>();
+        for (int i = 0; i < testcases.size(); i++) {
+            Testcase tc = testcases.get(i);
+            String input = inputFutures.get(i).join();
+            String tcCallbackUrl = callbackUrl.replace("/callback", "/output-callback/" + tc.getTestcaseId().toString());
+
             requests.add(Judge0Request.builder()
                     .languageId(problem.getSolutionLanguageId())
                     .sourceCode(problem.getSolutionCode())
@@ -55,100 +84,93 @@ public class OutputGeneratorService {
                     .cpuTimeLimit(cpuTimeLimit)
                     .wallTimeLimit(wallTimeLimit)
                     .memoryLimit(memoryLimit)
+                    .callbackUrl(tcCallbackUrl)
                     .build());
+            
+            testcaseIds.add(tc.getTestcaseId().toString());
         }
+
+        // Store active testcases to Redis set to track progress
+        String redisKey = "problem:" + problemId + ":pending-outputs";
+        redisTemplate.opsForSet().add(redisKey, testcaseIds.toArray(new String[0]));
+        redisTemplate.expire(redisKey, 1, TimeUnit.HOURS);
 
         // Submit all at once — no blocking per testcase
-        log.info("Submitting batch of {} testcases to Judge0 for problem: {}", testcases.size(), problemId);
-        List<String> tokens = judge0Client.submitBatch(requests);
-
-        // Poll until all are done (max 300 seconds — Judge0 can be slow under load)
-        List<Judge0Response> results = pollUntilDone(tokens);
-
-        // Save outputs
-        int generatedCount = 0;
-        for (int i = 0; i < testcases.size(); i++) {
-            Testcase tc = testcases.get(i);
-            Judge0Response response = i < results.size() ? results.get(i) : null;
-
-            if (response == null || response.getStatus() == null || response.getStatus().getId() != 3) {
-                log.error("Solution failed for testcase {}: status={}", tc.getTestcaseId(),
-                        response != null && response.getStatus() != null
-                                ? response.getStatus().getDescription() : "null/timeout");
-                continue;
-            }
-
-            String output = response.getStdout() != null ? response.getStdout() : "";
-            byte[] outputBytes = output.getBytes(StandardCharsets.UTF_8);
-
-            String outputPath = storageService.saveTestcaseOutput(
-                    problem.getProblemId(),
-                    tc.getTestcaseId(),
-                    new ByteArrayInputStream(outputBytes),
-                    outputBytes.length
-            );
-
-            tc.setOutputPath(outputPath);
-            tc.setOutputSizeKb((int) Math.ceil(outputBytes.length / 1024.0));
-            testcaseRepository.save(tc);
-
-            generatedCount++;
-            log.info("Generated output for testcase: {}", tc.getTestcaseId());
-        }
-
-        log.info("Generated {}/{} outputs for problem: {}", generatedCount, testcases.size(), problemId);
-        return generatedCount;
+        log.info("Submitting batch of {} testcases to Judge0 async for problem: {}", testcases.size(), problemId);
+        judge0Client.submitBatch(requests);
     }
 
-    /**
-     * Poll Judge0 for all tokens until all are done or timeout expires.
-     */
-    private List<Judge0Response> pollUntilDone(List<String> tokens) {
-        List<Judge0Response> results = new ArrayList<>();
-        for (int i = 0; i < tokens.size(); i++) results.add(null);
+    @Transactional
+    public void processOutputCallback(UUID testcaseId, Judge0CallbackPayload payload) {
+        log.info("Processing output callback for testcase: {}", testcaseId);
 
-        boolean[] done = new boolean[tokens.size()];
-        int pending = tokens.size();
-        long deadline = System.currentTimeMillis() + 300 * 1000L;
+        Testcase tc = testcaseRepository.findById(testcaseId)
+                .orElseThrow(() -> new AppException(ErrorCode.TESTCASE_NOT_FOUND));
+        
+        UUID problemId = tc.getProblem().getProblemId();
+        String redisKey = "problem:" + problemId + ":pending-outputs";
 
-        while (pending > 0 && System.currentTimeMillis() < deadline) {
-            try {
-                Thread.sleep(1500);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
+        // 1. Check if the testcase is still in the pending set (deduplication)
+        Boolean isPending = redisTemplate.opsForSet().isMember(redisKey, testcaseId.toString());
+        if (!Boolean.TRUE.equals(isPending)) {
+            log.info("[CALLBACK] Testcase {} is not in the pending set. Ignoring duplicate or outdated callback.", testcaseId);
+            return;
+        }
 
-            for (int i = 0; i < tokens.size(); i++) {
-                if (done[i]) continue;
+        // 2. Remove the testcase from the pending set
+        redisTemplate.opsForSet().remove(redisKey, testcaseId.toString());
+
+        // 3. Check status
+        if (payload.getStatus() == null || payload.getStatus().getId() != 3) {
+            log.error("Solution failed for testcase {} output generation: status={}", testcaseId,
+                    payload.getStatus() != null ? payload.getStatus().getDescription() : "null");
+            // Check if this was the last testcase in the batch
+            checkAndNotifyCompletion(problemId, redisKey);
+            return;
+        }
+
+        // 4. Save stdout to Cloudflare R2
+        String output = payload.getStdout() != null ? payload.getStdout() : "";
+        byte[] outputBytes = output.getBytes(StandardCharsets.UTF_8);
+
+        String outputPath = storageService.saveTestcaseOutput(
+                problemId,
+                testcaseId,
+                new ByteArrayInputStream(outputBytes),
+                outputBytes.length
+        );
+
+        // 5. Update Testcase metadata
+        tc.setOutputPath(outputPath);
+        tc.setOutputSizeKb((int) Math.ceil(outputBytes.length / 1024.0));
+        testcaseRepository.save(tc);
+        log.info("Successfully updated expected output for testcase: {}", testcaseId);
+
+        // 6. Check if this was the last testcase in the batch
+        checkAndNotifyCompletion(problemId, redisKey);
+    }
+
+    private void checkAndNotifyCompletion(UUID problemId, String redisKey) {
+        Long remaining = redisTemplate.opsForSet().size(redisKey);
+        if (remaining != null && remaining == 0) {
+            log.info("All testcases completed for problem: {}. Triggering completion notification.", problemId);
+            
+            // Delete the key
+            redisTemplate.delete(redisKey);
+
+            // Fetch problem to notify the creator
+            Problem problem = problemRepository.findById(problemId).orElse(null);
+            if (problem != null && problem.getProblemCreator() != null) {
                 try {
-                    Judge0Response resp = judge0Client.getSubmission(tokens.get(i));
-                    // status id > 2 means finished (3=AC, 4=WA, 5=TLE, 6=CE, ...)
-                    if (resp != null && resp.getStatus() != null && resp.getStatus().getId() > 2) {
-                        results.set(i, resp);
-                        done[i] = true;
-                        pending--;
-                    }
+                    notificationService.sendToUsers(
+                            "Sinh Output Hoàn Tất",
+                            "Dữ liệu đầu ra mong muốn cho bài toán '" + problem.getTitle() + "' đã được tạo thành công.",
+                            List.of(problem.getProblemCreator().getUserId())
+                    );
                 } catch (Exception e) {
-                    log.warn("Failed to poll token {}: {}", tokens.get(i), e.getMessage());
+                    log.error("Failed to send output generation completion notification for problem: {}", problemId, e);
                 }
             }
-        }
-
-        if (pending > 0) {
-            log.warn("{}/{} testcases timed out after {}s", pending, tokens.size(), 300);
-        }
-
-        return results;
-    }
-
-    private String readFile(String path) {
-        try {
-            byte[] bytes = storageService.getFile(path).readAllBytes();
-            return new String(bytes, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            log.error("Failed to read file: {}", path, e);
-            return "";
         }
     }
 }

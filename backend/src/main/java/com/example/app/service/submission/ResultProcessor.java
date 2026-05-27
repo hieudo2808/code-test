@@ -7,7 +7,7 @@ import com.example.app.entity.enums.Verdict;
 import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
 import com.example.app.repository.SubmissionResultRepository;
-import com.example.app.service.S3StorageService;
+import com.example.app.service.R2StorageService;
 import com.example.app.service.submission.event.JudgeResultReceivedEvent;
 import com.example.app.service.submission.event.ScoringRequiredEvent;
 import com.example.app.entity.enums.EvaluationType;
@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ResultProcessor {
     private final SubmissionResultRepository resultRepository;
-    private final S3StorageService storageService;
+    private final R2StorageService storageService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional

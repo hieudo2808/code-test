@@ -12,11 +12,14 @@ import com.example.app.repository.SubmissionResultRepository;
 import com.example.app.repository.TestcaseRepository;
 import com.example.app.service.Judge0Client;
 import com.example.app.service.JudgeRateLimiter;
-import com.example.app.service.S3StorageService;
+import com.example.app.service.R2StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,16 +28,25 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SubmissionDispatcher {
+public class SubmissionDispatcher implements InitializingBean {
+    private static final int LANGUAGE_ID_C = 50;
+    private static final int LANGUAGE_ID_CPP = 54;
 
     private final Judge0Client judge0Client;
     private final JudgeRateLimiter rateLimiter;
-    private final S3StorageService storageService;
+    private final R2StorageService storageService;
     private final SubmissionRepository submissionRepository;
     private final SubmissionResultRepository resultRepository;
     private final TestcaseRepository testcaseRepository;
+    private final PlatformTransactionManager transactionManager;
+    private TransactionTemplate transactionTemplate;
 
-    @Transactional
+    @Override
+    public void afterPropertiesSet() {
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
     public void dispatch(Submission submission) {
         try {
             rateLimiter.acquire();
@@ -45,22 +57,20 @@ public class SubmissionDispatcher {
             if (problem.getEvaluationType() == EvaluationType.HEURISTIC) {
                 if (problem.getScorerCode() == null || problem.getScorerLanguageId() == null) {
                     log.warn("No scorer configured for heuristic problem: {}", problem.getProblemId());
-                    submission.setSubmissionStatus(SubmissionStatus.NEED_REVIEW);
-                    submissionRepository.save(submission);
+                    updateStatusInNewTx(submission.getSubmissionId(), SubmissionStatus.NEED_REVIEW);
                     return;
                 }
             }
 
-            submission.setSubmissionStatus(SubmissionStatus.COMPILING);
-            submissionRepository.save(submission);
+            updateStatusInNewTx(submission.getSubmissionId(), SubmissionStatus.COMPILING);
 
             List<Testcase> testcases = testcaseRepository.findByProblemProblemId(problem.getProblemId());
 
             List<CompletableFuture<String>> inputFutures = testcases.stream()
-                    .map(tc -> CompletableFuture.supplyAsync(() -> readFromS3(tc.getInputPath())))
+                    .map(tc -> CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getInputPath())))
                     .toList();
             List<CompletableFuture<String>> expectedOutputFutures = testcases.stream()
-                    .map(tc -> CompletableFuture.supplyAsync(() -> readFromS3(tc.getOutputPath())))
+                    .map(tc -> CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getOutputPath())))
                     .toList();
             
             CompletableFuture.allOf(inputFutures.toArray(new CompletableFuture[0])).join();
@@ -72,7 +82,7 @@ public class SubmissionDispatcher {
 
             String compilerOptions = null;
             Integer langId = submission.getLanguageId();
-            if (langId == 50 || langId == 54) {
+            if (langId == LANGUAGE_ID_C || langId == LANGUAGE_ID_CPP) {
                 compilerOptions = "-O2 -Wall -Wextra -Werror=return-type -Werror=uninitialized -Werror=array-bounds -lm -fstack-protector-strong -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer";
             }
 
@@ -102,34 +112,39 @@ public class SubmissionDispatcher {
             List<String> tokens = judge0Client.submitBatch(batchRequests);
 
             // Save pending results with tokens
-            for (int i = 0; i < testcases.size(); i++) {
-                SubmissionResult result = SubmissionResult.builder()
-                        .submission(submission)
-                        .testcase(testcases.get(i))
-                        .judge0Token(tokens.get(i))
-                        .build();
-                resultRepository.save(result);
-            }
-
-            submission.setSubmissionStatus(SubmissionStatus.RUNNING);
-            submissionRepository.save(submission);
+            final List<String> finalTokens = tokens;
+            final List<Testcase> finalTestcases = testcases;
+            transactionTemplate.executeWithoutResult(status -> {
+                Submission sub = submissionRepository.findById(submission.getSubmissionId())
+                        .orElseThrow(() -> new com.example.app.exception.AppException(com.example.app.exception.ErrorCode.SUBMISSION_NOT_FOUND));
+                for (int i = 0; i < finalTestcases.size(); i++) {
+                    SubmissionResult result = SubmissionResult.builder()
+                            .submission(sub)
+                            .testcase(finalTestcases.get(i))
+                            .judge0Token(finalTokens.get(i))
+                            .build();
+                    resultRepository.save(result);
+                }
+                sub.setSubmissionStatus(SubmissionStatus.RUNNING);
+                submissionRepository.save(sub);
+            });
 
         } catch (Exception e) {
             log.error("Dispatch failed for submission: {}", submission.getSubmissionId(), e);
-            submission.setSubmissionStatus(SubmissionStatus.ERROR);
-            submissionRepository.save(submission);
+            updateStatusInNewTx(submission.getSubmissionId(), SubmissionStatus.ERROR);
         } finally {
             rateLimiter.release();
         }
     }
 
-    private String readFromS3(String path) {
-        try {
-            byte[] bytes = storageService.getFile(path).readAllBytes();
-            return new String(bytes);
-        } catch (Exception e) {
-            log.error("Failed to read testcase input from: {}", path, e);
-            return "";
-        }
+    private void updateStatusInNewTx(java.util.UUID submissionId, SubmissionStatus status) {
+        transactionTemplate.executeWithoutResult(txStatus -> {
+            submissionRepository.findById(submissionId).ifPresent(s -> {
+                s.setSubmissionStatus(status);
+                submissionRepository.save(s);
+            });
+        });
     }
+
+
 }

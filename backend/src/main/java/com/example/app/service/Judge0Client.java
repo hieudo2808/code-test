@@ -22,6 +22,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class Judge0Client {
+    private static final long SYNC_POLL_INTERVAL_MS = 1000L;
 
     private final RestTemplate restTemplate;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
@@ -36,15 +37,21 @@ public class Judge0Client {
     private String callbackUrl;
 
     @Retryable(
-            retryFor = {ResourceAccessException.class, AppException.class},
+            retryFor = {ResourceAccessException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 2000, multiplier = 2)
     )
     public List<String> submitBatch(List<Judge0Request> requests) {
         if (requests.isEmpty()) return List.of();
 
-        // Set callback URL for all requests
-        requests.forEach(r -> r.setCallbackUrl("http://" + callbackUrl));
+        // Set callback URL for all requests if not already set
+        requests.forEach(r -> {
+            if (r.getCallbackUrl() == null) {
+                r.setCallbackUrl(formatCallbackUrl(callbackUrl));
+            } else {
+                r.setCallbackUrl(formatCallbackUrl(r.getCallbackUrl()));
+            }
+        });
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -85,6 +92,12 @@ public class Judge0Client {
             log.warn("Judge0 batch connection error: {}", e.getMessage());
             throw e;
         }
+    }
+
+    @Recover
+    public List<String> recoverSubmitBatch(ResourceAccessException e, List<Judge0Request> requests) {
+        log.error("Judge0 batch submission failed after 3 retries (batch size={})", requests.size(), e);
+        throw new AppException(ErrorCode.JUDGE_SERVICE_UNAVAILABLE);
     }
 
     public Judge0Response submitSync(Judge0Request request, int maxWaitSeconds) {
@@ -128,7 +141,7 @@ public class Judge0Client {
 
         while (System.currentTimeMillis() < deadline) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(SYNC_POLL_INTERVAL_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
@@ -163,12 +176,53 @@ public class Judge0Client {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         ResponseEntity<Judge0Response> response = restTemplate.exchange(
-                baseUrl + "/submissions/" + token + "?base64_encoded=true",
+                baseUrl + "/submissions/" + token + "?base64_encoded=false",
                 HttpMethod.GET,
                 entity,
                 Judge0Response.class
         );
 
         return response.getBody();
+    }
+
+    public List<Judge0Response> getSubmissionsBatch(List<String> tokens) {
+        if (tokens.isEmpty()) return List.of();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Auth-Token", authToken);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        String tokensParam = String.join(",", tokens);
+        String url = baseUrl + "/submissions/batch?tokens=" + tokensParam + "&base64_encoded=false";
+
+        try {
+            ResponseEntity<Judge0BatchResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    Judge0BatchResponse.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody().getSubmissions();
+            }
+            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
+        } catch (Exception e) {
+            log.error("Failed to fetch batch submissions from Judge0", e);
+            throw new AppException(ErrorCode.JUDGE_SERVICE_ERROR);
+        }
+    }
+
+    private String formatCallbackUrl(String url) {
+        if (url == null) return null;
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+        }
+        return "http://" + url;
+    }
+
+    @lombok.Data
+    public static class Judge0BatchResponse {
+        private List<Judge0Response> submissions;
     }
 }

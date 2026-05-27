@@ -4,6 +4,7 @@ import com.example.app.dto.ApiResponse;
 import com.example.app.dto.request.submission.SubmitCodeRequest;
 import com.example.app.dto.response.SubmissionResponse;
 import com.example.app.dto.response.TestcaseDetailResponse;
+import com.example.app.service.SubmissionDetailService;
 import com.example.app.service.SubmissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class SubmissionController {
 
     private final SubmissionService submissionService;
+    private final SubmissionDetailService submissionDetailService;
 
     @PostMapping
     public ApiResponse<SubmissionResponse> submit(@Valid @RequestBody SubmitCodeRequest request) {
@@ -124,7 +126,7 @@ public class SubmissionController {
             @PathVariable UUID submissionId,
             @PathVariable UUID testcaseId) {
         return ApiResponse.<TestcaseDetailResponse>builder()
-                .result(submissionService.getTestcaseDetail(submissionId, testcaseId))
+                .result(submissionDetailService.getTestcaseDetail(submissionId, testcaseId))
                 .build();
     }
 

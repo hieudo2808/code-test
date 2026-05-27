@@ -10,6 +10,7 @@ import {
     ClipboardList,
     ExternalLink,
     Trash2,
+    RefreshCcw,
 } from "lucide-react";
 import { submissionService, type Submission } from "~/services/submissionService";
 import { problemService, type Problem } from "~/services/problemService";
@@ -45,6 +46,12 @@ export function ProblemSubmissionsPage() {
     const [filterVerdict, setFilterVerdict] = useState("");
 
     const [deleteModal, setDeleteModal] = useState<{
+        isOpen: boolean;
+        id: string;
+        title: string;
+    } | null>(null);
+
+    const [rejudgeModal, setRejudgeModal] = useState<{
         isOpen: boolean;
         id: string;
         title: string;
@@ -99,6 +106,20 @@ export function ProblemSubmissionsPage() {
             toast.error("Không thể xóa bài nộp này.");
         } finally {
             setDeleteModal(null);
+        }
+    };
+
+    const handleRejudge = async () => {
+        if (!rejudgeModal) return;
+        try {
+            await submissionService.rejudge(rejudgeModal.id);
+            toast.success("Đang chấm lại bài nộp.");
+            loadSubmissions();
+        } catch (error) {
+            console.error("Failed to rejudge submission:", error);
+            toast.error("Không thể chấm lại bài nộp này.");
+        } finally {
+            setRejudgeModal(null);
         }
     };
 
@@ -285,6 +306,20 @@ export function ProblemSubmissionsPage() {
                                                     size="sm"
                                                     variant="ghost"
                                                     onClick={() =>
+                                                        setRejudgeModal({
+                                                            isOpen: true,
+                                                            id: s.submissionId,
+                                                            title: `bài nộp của ${s.submitterName}`,
+                                                        })
+                                                    }
+                                                    title="Chấm lại bài nộp"
+                                                >
+                                                    <RefreshCcw className="w-4 h-4 text-orange-500" />
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() =>
                                                         setDeleteModal({
                                                             isOpen: true,
                                                             id: s.submissionId,
@@ -352,6 +387,30 @@ export function ProblemSubmissionsPage() {
                     <p className="text-gray-700 dark:text-gray-300">
                         Bạn có chắc chắn muốn xóa <strong>{deleteModal.title}</strong>? Hành động
                         này không thể hoàn tác.
+                    </p>
+                </Modal>
+            )}
+
+            {/* Rejudge Modal */}
+            {rejudgeModal && (
+                <Modal
+                    isOpen={rejudgeModal.isOpen}
+                    onClose={() => setRejudgeModal(null)}
+                    title="Chấm lại bài nộp"
+                    footer={
+                        <>
+                            <Button variant="outline" onClick={() => setRejudgeModal(null)}>
+                                Hủy
+                            </Button>
+                            <Button variant="primary" onClick={handleRejudge}>
+                                Chấm lại
+                            </Button>
+                        </>
+                    }
+                >
+                    <p className="text-gray-700 dark:text-gray-300">
+                        Bạn có chắc chắn muốn chấm lại <strong>{rejudgeModal.title}</strong> không? 
+                        Hành động này sẽ xóa kết quả khối lượng cũ và đưa vào hàng đợi chờ chấm lại.
                     </p>
                 </Modal>
             )}

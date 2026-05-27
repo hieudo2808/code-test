@@ -133,4 +133,9 @@ export const submissionService = {
     async deleteSubmission(submissionId: string): Promise<void> {
         await api.delete(`/submissions/${submissionId}`);
     },
+
+    async rejudge(submissionId: string): Promise<Submission> {
+        const response = await api.post(`/submissions/${submissionId}/rejudge`);
+        return response.data.result;
+    },
 };

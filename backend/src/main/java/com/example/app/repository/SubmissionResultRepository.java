@@ -27,4 +27,6 @@ public interface SubmissionResultRepository extends JpaRepository<SubmissionResu
     List<SubmissionResult> findStaleResults(@Param("status") SubmissionStatus status, @Param("cutoff") OffsetDateTime cutoff);
 
     void deleteByTestcaseTestcaseId(UUID testcaseId);
+
+    List<SubmissionResult> findByTestcaseTestcaseId(UUID testcaseId);
 }

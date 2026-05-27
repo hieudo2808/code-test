@@ -48,6 +48,7 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/api/checkstatus",
             "/api/internal/judge/callback",
+            "/api/internal/judge/output-callback/**",
             "/api/maintenance/status",
             "/ws/**",
             "/users/*/avatar",

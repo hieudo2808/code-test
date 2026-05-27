@@ -30,6 +30,8 @@ public enum ErrorCode {
 
     SUBMISSION_NOT_FOUND(2201, "Submission not found", HttpStatus.NOT_FOUND),
     SUBMISSION_ALREADY_JUDGING(2202, "Submission is already being judged", HttpStatus.CONFLICT),
+    SUBMISSION_NOT_GRADABLE(2203, "Submission is not in a gradable state", HttpStatus.BAD_REQUEST),
+    SCORE_OUT_OF_RANGE(2204, "Score must be between 0 and max score", HttpStatus.BAD_REQUEST),
 
     JUDGE_SERVICE_ERROR(3001, "Judge service error", HttpStatus.INTERNAL_SERVER_ERROR),
     JUDGE_SERVICE_UNAVAILABLE(3002, "Judge service unavailable", HttpStatus.SERVICE_UNAVAILABLE),

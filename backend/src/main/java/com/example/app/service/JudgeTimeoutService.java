@@ -27,6 +27,7 @@ public class JudgeTimeoutService {
 
     private static final int CUTOFF_SECONDS = 15;
     private static final int HARD_CUTOFF_SECONDS = 300;
+    private static final int SCORER_TIMEOUT_SECONDS = 60;
 
     @Scheduled(fixedDelay = 5000)
     @Transactional
@@ -43,7 +44,7 @@ public class JudgeTimeoutService {
 
                 // HEURISTIC result waiting for scorer: check if scorer is still working or stuck
                 if (evalType == EvaluationType.HEURISTIC && result.getTimeMs() != null && result.getVerdict() == null) {
-                    OffsetDateTime scorerCutoff = OffsetDateTime.now().minusSeconds(60);
+                    OffsetDateTime scorerCutoff = OffsetDateTime.now().minusSeconds(SCORER_TIMEOUT_SECONDS);
                     boolean scorerStuck = result.getSubmission().getUpdateAt() != null
                             && result.getSubmission().getUpdateAt().isBefore(scorerCutoff);
 
@@ -70,7 +71,7 @@ public class JudgeTimeoutService {
                             Verdict.RUNTIME_ERROR,
                             null,
                             null,
-                            "Judge0 submission timed out (no result after \" + HARD_CUTOFF_SECONDS + \"s)",
+                            "Judge0 submission timed out (no result after " + HARD_CUTOFF_SECONDS + "s)",
                             ""
                     );
                     continue;
@@ -138,27 +139,6 @@ public class JudgeTimeoutService {
 
         Double timeMs = response.getTime() != null ? response.getTime() * 1000 : null;
         Double memoryKb = response.getMemory() != null ? response.getMemory().doubleValue() : null;
-
-        if (verdict == Verdict.ACCEPTED) {
-            Problem problem = result.getSubmission().getProblem();
-
-            if (problem.getMemoryLimit() != null && response.getMemory() != null) {
-                int memoryLimitKb = problem.getMemoryLimit() * 1024;
-                if (response.getMemory() > memoryLimitKb) {
-                    verdict = Verdict.MEMORY_LIMIT;
-                    log.warn("Memory limit exceeded (recovered) for token {}: used={}KB, limit={}KB",
-                            token, response.getMemory(), memoryLimitKb);
-                }
-            }
-
-            if (problem.getTimeLimit() != null && response.getTime() != null) {
-                if (response.getTime() > problem.getTimeLimit()) {
-                    verdict = Verdict.TIME_LIMIT;
-                    log.warn("Time limit exceeded (recovered) for token {}: used={}s, limit={}s",
-                            token, response.getTime(), problem.getTimeLimit());
-                }
-            }
-        }
 
         String errorMsg = null;
         if (verdict != Verdict.ACCEPTED) {

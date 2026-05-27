@@ -85,11 +85,10 @@ public class ProblemController {
      * Requires problem to have solutionCode and solutionLanguageId set.
      */
     @PostMapping("/{problemId}/generate-outputs")
-    public ApiResponse<Integer> generateOutputs(@PathVariable UUID problemId) {
-        int count = outputGeneratorService.generateOutputs(problemId);
-        return ApiResponse.<Integer>builder()
-                .message("Generated outputs for " + count + " testcases")
-                .result(count)
+    public ApiResponse<Void> generateOutputs(@PathVariable UUID problemId) {
+        outputGeneratorService.generateOutputsAsync(problemId);
+        return ApiResponse.<Void>builder()
+                .message("Output generation triggered successfully")
                 .build();
     }
 }

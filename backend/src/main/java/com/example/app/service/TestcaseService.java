@@ -6,6 +6,7 @@ import com.example.app.dto.response.TestcaseContentResponse;
 import com.example.app.dto.response.TestcaseResponse;
 import com.example.app.dto.response.TestcaseSummaryResponse;
 import com.example.app.entity.Problem;
+import com.example.app.entity.SubmissionResult;
 import com.example.app.entity.Testcase;
 import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
@@ -33,7 +34,7 @@ public class TestcaseService {
     private final ProblemRepository problemRepository;
     private final SubmissionResultRepository submissionResultRepository;
     private final TestcaseMapper testcaseMapper;
-    private final S3StorageService storageService;
+    private final R2StorageService storageService;
     private final SecurityHelper securityHelper;
 
     // ==================== CREATE ====================
@@ -191,24 +192,14 @@ public class TestcaseService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        String input = readFromS3(testcase.getInputPath());
-        String output = readFromS3(testcase.getOutputPath());
+        String input = storageService.readAsString(testcase.getInputPath());
+        String output = storageService.readAsString(testcase.getOutputPath());
 
         return TestcaseContentResponse.builder()
                 .testcaseId(testcase.getTestcaseId())
                 .input(input)
                 .output(output)
                 .build();
-    }
-
-    private String readFromS3(String path) {
-        try {
-            byte[] bytes = storageService.getFile(path).readAllBytes();
-            return new String(bytes);
-        } catch (Exception e) {
-            log.warn("Failed to read file from S3: {}", path, e);
-            return "";
-        }
     }
 
     // ==================== DELETE ====================
@@ -222,6 +213,16 @@ public class TestcaseService {
         // Validate ownership or admin
         if (canManageProblem(testcase.getProblem())) {
             throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // Delete submission result outputs from S3
+        List<SubmissionResult> results = submissionResultRepository.findByTestcaseTestcaseId(testcaseId);
+        for (SubmissionResult result : results) {
+            if (result.getSubmission() != null) {
+                String userOutputPath = String.format("submissions/%s/results/%s/output.txt",
+                        result.getSubmission().getSubmissionId(), testcaseId);
+                storageService.delete(userOutputPath);
+            }
         }
 
         // Delete files from S3

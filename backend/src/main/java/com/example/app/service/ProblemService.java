@@ -9,10 +9,14 @@ import com.example.app.entity.Users;
 import com.example.app.exception.AppException;
 import com.example.app.exception.ErrorCode;
 import com.example.app.mapper.ProblemMapper;
+import com.example.app.entity.Testcase;
+import com.example.app.entity.SubmissionResult;
 import com.example.app.repository.ProblemRepository;
 import com.example.app.repository.SubmissionRepository;
 import com.example.app.repository.UserRepository;
 import com.example.app.repository.ContestProblemRepository;
+import com.example.app.repository.TestcaseRepository;
+import com.example.app.repository.SubmissionResultRepository;
 import com.example.app.security.SecurityHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 @Slf4j
 @Service
@@ -34,6 +41,9 @@ public class ProblemService {
     private final ContestProblemRepository contestProblemRepository;
     private final ProblemMapper problemMapper;
     private final SecurityHelper securityHelper;
+    private final TestcaseRepository testcaseRepository;
+    private final SubmissionResultRepository submissionResultRepository;
+    private final R2StorageService storageService;
 
     // ==================== CREATE ====================
     
@@ -71,7 +81,7 @@ public class ProblemService {
                 .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
 
         // Students can only see public problems
-        if (!problem.getIsPublic() && canManageProblem(problem)) {
+        if (!problem.getIsPublic() && isRestrictedForCurrentUser(problem)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -83,7 +93,7 @@ public class ProblemService {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
 
-        if (!problem.getIsPublic() && canManageProblem(problem)) {
+        if (!problem.getIsPublic() && isRestrictedForCurrentUser(problem)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -92,22 +102,25 @@ public class ProblemService {
 
     @PreAuthorize("hasAuthority('PROBLEM_READ')")
     public Page<ProblemSummaryResponse> getAllProblems(Pageable pageable) {
+        Page<Problem> problemsPage;
         if (securityHelper.hasAuthority("PROBLEM_CREATE")) {
-            return problemRepository.findAll(pageable).map(this::toSummaryWithStats);
+            problemsPage = problemRepository.findAll(pageable);
         } else {
-            return problemRepository.findByIsPublicTrue(pageable).map(this::toSummaryWithStats);
+            problemsPage = problemRepository.findByIsPublicTrue(pageable);
         }
+        return enrichProblemsPageWithStats(problemsPage);
     }
 
     @PreAuthorize("hasAuthority('PROBLEM_CREATE')")
     public Page<ProblemSummaryResponse> getMyProblems(String keyword, Pageable pageable) {
         UUID currentUserId = securityHelper.getCurrentUserId();
+        Page<Problem> problemsPage;
         if (keyword != null && !keyword.isBlank()) {
-            return problemRepository.searchByCreator(currentUserId, keyword.trim(), pageable)
-                    .map(this::toSummaryWithStats);
+            problemsPage = problemRepository.searchByCreator(currentUserId, keyword.trim(), pageable);
+        } else {
+            problemsPage = problemRepository.findByProblemCreatorUserId(currentUserId, pageable);
         }
-        return problemRepository.findByProblemCreatorUserId(currentUserId, pageable)
-                .map(this::toSummaryWithStats);
+        return enrichProblemsPageWithStats(problemsPage);
     }
 
     // ==================== UPDATE ====================
@@ -137,6 +150,23 @@ public class ProblemService {
             throw new AppException(ErrorCode.PROBLEM_NOT_FOUND);
         }
 
+        // Clean S3 files for all problem's testcases
+        List<Testcase> testcases = testcaseRepository.findByProblemProblemId(problemId);
+        for (Testcase tc : testcases) {
+            // Delete submission outputs from S3
+            List<SubmissionResult> results = submissionResultRepository.findByTestcaseTestcaseId(tc.getTestcaseId());
+            for (SubmissionResult result : results) {
+                if (result.getSubmission() != null) {
+                    String userOutputPath = String.format("submissions/%s/results/%s/output.txt",
+                            result.getSubmission().getSubmissionId(), tc.getTestcaseId());
+                    storageService.delete(userOutputPath);
+                }
+            }
+            // Delete testcase files from S3
+            storageService.delete(tc.getInputPath());
+            storageService.delete(tc.getOutputPath());
+        }
+
         contestProblemRepository.deleteAllByProblemProblemId(problemId);
 
         problemRepository.deleteById(problemId);
@@ -145,26 +175,55 @@ public class ProblemService {
 
     // ==================== HELPERS ====================
 
-    private boolean canManageProblem(Problem problem) {
+    /**
+     * Returns true if the current user should NOT be allowed to view a private problem.
+     * Admin and problem creator are unrestricted; all others are restricted.
+     */
+    private boolean isRestrictedForCurrentUser(Problem problem) {
         UUID currentUserId = securityHelper.getCurrentUserId();
-        if (currentUserId == null) return true;
-        
-        // Admin can manage all
-        if (securityHelper.hasAuthority("USER_MANAGE")) return false;
-        
-        // Creator can manage their own
-        return problem.getProblemCreator() == null
-                || !currentUserId.equals(problem.getProblemCreator().getUserId());
+        if (currentUserId == null) return true; // Anonymous -> restricted
+
+        // Admin can view all problems
+        if (securityHelper.hasAuthority("USER_MANAGE")) return false; // Admin -> unrestricted
+
+        // Creator can view their own problems
+        if (problem.getProblemCreator() != null
+                && currentUserId.equals(problem.getProblemCreator().getUserId())) {
+            return false; // Creator -> unrestricted
+        }
+
+        return true; // Others -> restricted
     }
 
-    private ProblemSummaryResponse toSummaryWithStats(Problem problem) {
-        ProblemSummaryResponse res = problemMapper.toSummary(problem);
-        long total = submissionRepository.countByProblemProblemId(problem.getProblemId());
-        if (total > 0) {
-            long accepted = submissionRepository.countByProblemProblemIdAndFinalVerdict(
-                    problem.getProblemId(), com.example.app.entity.enums.Verdict.ACCEPTED);
-            res.setAcceptanceRate((double) accepted / total * 100.0);
+    private Page<ProblemSummaryResponse> enrichProblemsPageWithStats(Page<Problem> problemsPage) {
+        Page<ProblemSummaryResponse> responsesPage = problemsPage.map(problemMapper::toSummary);
+        if (responsesPage.isEmpty()) {
+            return responsesPage;
         }
-        return res;
+
+        List<UUID> problemIds = responsesPage.getContent().stream()
+                .map(ProblemSummaryResponse::getProblemId)
+                .toList();
+
+        List<Object[]> statsList = submissionRepository.countStatsForProblems(problemIds);
+        Map<UUID, Object[]> statsMap = new HashMap<>();
+        for (Object[] row : statsList) {
+            if (row != null && row[0] != null) {
+                statsMap.put((UUID) row[0], row);
+            }
+        }
+
+        for (ProblemSummaryResponse response : responsesPage.getContent()) {
+            Object[] stats = statsMap.get(response.getProblemId());
+            if (stats != null) {
+                long total = (long) stats[1];
+                long accepted = (long) stats[2];
+                if (total > 0) {
+                    response.setAcceptanceRate((double) accepted / total * 100.0);
+                }
+            }
+        }
+
+        return responsesPage;
     }
 }

@@ -88,9 +88,8 @@ export const problemService = {
         return response.data.result;
     },
 
-    async generateOutputs(problemId: string): Promise<number> {
-        const response = await api.post(`/problems/${problemId}/generate-outputs`);
-        return response.data.result;
+    async generateOutputs(problemId: string): Promise<void> {
+        await api.post(`/problems/${problemId}/generate-outputs`);
     },
     async updateProblem(id: string, request: UpdateProblemRequest): Promise<Problem> {
         const response = await api.put(`/problems/${id}`, request);

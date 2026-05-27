@@ -92,4 +92,12 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     @Query("SELECT s.finalVerdict, COUNT(s) FROM Submission s " +
            "WHERE s.finalVerdict IS NOT NULL GROUP BY s.finalVerdict")
     java.util.List<Object[]> countByVerdict();
+
+    @Query("SELECT s.problem.problemId, " +
+           "COUNT(s), " +
+           "SUM(CASE WHEN s.finalVerdict = com.example.app.entity.enums.Verdict.ACCEPTED THEN 1L ELSE 0L END) " +
+           "FROM Submission s " +
+           "WHERE s.problem.problemId IN :problemIds " +
+           "GROUP BY s.problem.problemId")
+    java.util.List<Object[]> countStatsForProblems(@Param("problemIds") java.util.Collection<java.util.UUID> problemIds);
 }

@@ -11,7 +11,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Entry point of the judging pipeline.
@@ -21,20 +24,40 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SubmissionOrchestrator {
+public class SubmissionOrchestrator implements InitializingBean {
 
     private final SubmissionRepository submissionRepository;
     private final SubmissionDispatcher submissionDispatcher;
     private final ManualDispatcher manualDispatcher;
+    private final PlatformTransactionManager transactionManager;
+    private TransactionTemplate transactionTemplate;
+
+    @Override
+    public void afterPropertiesSet() {
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
 
     @Async("judgeExecutor")
     @EventListener
-    @Transactional
     public void handleSubmissionCreated(SubmissionCreatedEvent event) {
         log.info("Processing SubmissionCreatedEvent for: {}", event.submissionId());
 
-        Submission submission = submissionRepository.findById(event.submissionId())
-                .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+        Submission submission;
+        try {
+            submission = transactionTemplate.execute(status -> {
+                Submission sub = submissionRepository.findById(event.submissionId())
+                        .orElseThrow(() -> new AppException(ErrorCode.SUBMISSION_NOT_FOUND));
+                // Force lazy load of problem to avoid LazyInitializationException outside the TX
+                if (sub.getProblem() != null) {
+                    sub.getProblem().getEvaluationType();
+                }
+                return sub;
+            });
+        } catch (Exception e) {
+            log.error("Failed to fetch submission in orchestrator: {}", event.submissionId(), e);
+            return;
+        }
 
         try {
             switch (submission.getProblem().getEvaluationType()) {
@@ -43,8 +66,12 @@ public class SubmissionOrchestrator {
             }
         } catch (Exception e) {
             log.error("Orchestrator failed for submission: {}", event.submissionId(), e);
-            submission.setSubmissionStatus(SubmissionStatus.ERROR);
-            submissionRepository.save(submission);
+            transactionTemplate.executeWithoutResult(status -> {
+                submissionRepository.findById(event.submissionId()).ifPresent(s -> {
+                    s.setSubmissionStatus(SubmissionStatus.ERROR);
+                    submissionRepository.save(s);
+                });
+            });
         }
     }
 }

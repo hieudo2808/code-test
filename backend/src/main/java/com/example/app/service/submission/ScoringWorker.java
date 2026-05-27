@@ -6,7 +6,7 @@ import com.example.app.entity.SubmissionResult;
 import com.example.app.entity.enums.Verdict;
 import com.example.app.repository.SubmissionResultRepository;
 import com.example.app.service.Judge0Client;
-import com.example.app.service.S3StorageService;
+import com.example.app.service.R2StorageService;
 import com.example.app.service.submission.event.JudgeResultReceivedEvent;
 import com.example.app.service.submission.event.ScoringRequiredEvent;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ public class ScoringWorker {
 
     private final Judge0Client judge0Client;
     private final SubmissionResultRepository resultRepository;
-    private final S3StorageService storageService;
+    private final R2StorageService storageService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Async("scorerExecutor")
@@ -43,13 +43,13 @@ public class ScoringWorker {
         Problem problem = result.getSubmission().getProblem();
 
         try {
-            String testcaseInput = readFromS3(result.getTestcase().getInputPath());
-            String expectedOutput = readFromS3(result.getTestcase().getOutputPath());
+            String testcaseInput = storageService.readAsString(result.getTestcase().getInputPath());
+            String expectedOutput = storageService.readAsString(result.getTestcase().getOutputPath());
 
             String userOutputPath = String.format("submissions/%s/results/%s/output.txt",
                     result.getSubmission().getSubmissionId(),
                     result.getTestcase().getTestcaseId());
-            String userOutput = readFromS3(userOutputPath);
+            String userOutput = storageService.readAsString(userOutputPath);
 
             String scorerInput = testcaseInput + SEPARATOR + userOutput + SEPARATOR + expectedOutput;
 
@@ -104,13 +104,4 @@ public class ScoringWorker {
         eventPublisher.publishEvent(new JudgeResultReceivedEvent(event.submissionId()));
     }
 
-    private String readFromS3(String path) {
-        try {
-            byte[] bytes = storageService.getFile(path).readAllBytes();
-            return new String(bytes);
-        } catch (Exception e) {
-            log.error("Failed to read from S3: {}", path, e);
-            return "";
-        }
-    }
 }
