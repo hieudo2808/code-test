@@ -5,8 +5,10 @@ import com.example.app.entity.enums.SubmissionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -19,12 +21,20 @@ public interface SubmissionResultRepository extends JpaRepository<SubmissionResu
 
     Optional<SubmissionResult> findByJudge0Token(String token);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM SubmissionResult r WHERE r.judge0Token = :token")
+    Optional<SubmissionResult> findByJudge0TokenForUpdate(@Param("token") String token);
+
     @Query("SELECT COUNT(r) FROM SubmissionResult r WHERE r.submission.submissionId = :submissionId AND r.verdict IS NULL")
     long countUnfinished(@Param("submissionId") UUID submissionId);
 
     @Query("SELECT r FROM SubmissionResult r JOIN FETCH r.submission s JOIN FETCH r.testcase " +
            "WHERE r.verdict IS NULL AND s.submissionStatus = :status AND s.updateAt < :cutoff")
     List<SubmissionResult> findStaleResults(@Param("status") SubmissionStatus status, @Param("cutoff") OffsetDateTime cutoff);
+
+    @Query("SELECT r FROM SubmissionResult r JOIN FETCH r.submission s JOIN FETCH s.problem JOIN FETCH r.testcase " +
+           "WHERE r.verdict IS NULL AND r.dispatchedAt < :cutoff")
+    List<SubmissionResult> findStaleResultsByDispatchTime(@Param("cutoff") OffsetDateTime cutoff, org.springframework.data.domain.Pageable pageable);
 
     void deleteByTestcaseTestcaseId(UUID testcaseId);
 

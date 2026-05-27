@@ -53,6 +53,14 @@ public class OutputGeneratorAsyncTest {
     @Mock
     private PlatformTransactionManager transactionManager;
 
+    @org.mockito.Spy
+    private java.util.concurrent.Executor ioExecutor = new java.util.concurrent.Executor() {
+        @Override
+        public void execute(Runnable command) {
+            command.run();
+        }
+    };
+
     @InjectMocks
     private OutputGeneratorService outputGeneratorService;
 

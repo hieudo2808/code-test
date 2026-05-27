@@ -10,12 +10,17 @@ import com.example.app.repository.SubmissionResultRepository;
 import com.example.app.service.submission.ResultProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -25,18 +30,18 @@ public class JudgeTimeoutService {
     private final Judge0Client judge0Client;
     private final ResultProcessor resultProcessor;
 
-    private static final int CUTOFF_SECONDS = 15;
     private static final int HARD_CUTOFF_SECONDS = 300;
     private static final int SCORER_TIMEOUT_SECONDS = 60;
 
     @Scheduled(fixedDelay = 5000)
-    @Transactional
     public void recoverStaleResults() {
-        OffsetDateTime cutoff = OffsetDateTime.now().minusSeconds(CUTOFF_SECONDS);
-        OffsetDateTime hardCutoff = OffsetDateTime.now().minusSeconds(HARD_CUTOFF_SECONDS);
-        List<SubmissionResult> staleResults = resultRepository.findStaleResults(SubmissionStatus.RUNNING, cutoff);
+        OffsetDateTime waitCutoff = OffsetDateTime.now().minusSeconds(SCORER_TIMEOUT_SECONDS);
+        Pageable limit = PageRequest.of(0, 100);
+        List<SubmissionResult> staleResults = resultRepository.findStaleResultsByDispatchTime(waitCutoff, limit);
 
         if (staleResults.isEmpty()) return;
+
+        List<SubmissionResult> toPoll = new ArrayList<>();
 
         for (SubmissionResult result : staleResults) {
             try {
@@ -60,8 +65,9 @@ public class JudgeTimeoutService {
                     continue;
                 }
 
-                boolean expired = result.getSubmission().getUpdateAt() != null
-                        && result.getSubmission().getUpdateAt().isBefore(hardCutoff);
+                OffsetDateTime hardCutoff = OffsetDateTime.now().minusSeconds(HARD_CUTOFF_SECONDS);
+                boolean expired = result.getDispatchedAt() != null
+                        && result.getDispatchedAt().isBefore(hardCutoff);
 
                 if (expired) {
                     log.warn("Token {} exceeded hard cutoff ({}s), marking RUNTIME_ERROR",
@@ -76,84 +82,71 @@ public class JudgeTimeoutService {
                     );
                     continue;
                 }
-                recoverSingleResult(result);
-            } catch (Exception e) {
-                log.warn("Failed to recover stale result for token: {}", result.getJudge0Token(), e);
-                if (result.getVerdict() == null) {
-                    resultProcessor.processRecoveredResult(
-                            result,
-                            Verdict.RUNTIME_ERROR,
-                            null,
-                            null,
-                            "Judge0 callback lost and recovery failed",
-                            ""
-                    );
+                
+                if (result.getJudge0Token() != null) {
+                    toPoll.add(result);
+                } else {
+                    resultProcessor.processRecoveredResult(result, Verdict.RUNTIME_ERROR, null, null, "Judge0 submission token missing", "");
                 }
+            } catch (Exception e) {
+                log.warn("Failed to process stale result: {}", result.getSubmissionResultId(), e);
             }
+        }
+
+        if (!toPoll.isEmpty()) {
+            recoverBatch(toPoll);
         }
     }
 
-    /**
-     *
-     */
-    private void recoverSingleResult(SubmissionResult result) {
-        if (result.getVerdict() != null) return;
+    private void recoverBatch(List<SubmissionResult> resultsToPoll) {
+        List<String> tokens = resultsToPoll.stream().map(SubmissionResult::getJudge0Token).toList();
+        try {
+            List<Judge0Response> responses = judge0Client.getSubmissionsBatch(tokens);
+            Map<String, Judge0Response> responseMap = responses.stream()
+                    .collect(Collectors.toMap(Judge0Response::getToken, r -> r));
 
-        String token = result.getJudge0Token();
-        if (token == null) {
-            resultProcessor.processRecoveredResult(
-                    result,
-                    Verdict.RUNTIME_ERROR,
-                    null,
-                    null,
-                    "Judge0 submission token missing",
-                    ""
-            );
-            return;
+            for (SubmissionResult result : resultsToPoll) {
+                try {
+                    Judge0Response response = responseMap.get(result.getJudge0Token());
+                    if (response == null || response.getStatus() == null) {
+                        resultProcessor.processRecoveredResult(result, Verdict.RUNTIME_ERROR, null, null, "Judge0 has no record for this submission", "");
+                        continue;
+                    }
+
+                    int statusId = response.getStatus().getId();
+
+                    if (statusId <= 2) {
+                        log.debug("Token {} still processing at Judge0 (status={}), will retry", result.getJudge0Token(), statusId);
+                        continue;
+                    }
+
+                    Verdict verdict = ResultProcessor.mapVerdict(statusId);
+                    if (verdict == null) verdict = Verdict.RUNTIME_ERROR;
+
+                    Double timeMs = response.getTime() != null ? response.getTime() * 1000 : null;
+                    Double memoryKb = response.getMemory() != null ? response.getMemory().doubleValue() : null;
+
+                    String errorMsg = null;
+                    if (verdict != Verdict.ACCEPTED) {
+                        errorMsg = response.getCompile_output();
+                        if (errorMsg == null) errorMsg = response.getStderr();
+                        if (errorMsg == null) errorMsg = response.getMessage();
+                    }
+
+                    resultProcessor.processRecoveredResult(
+                            result,
+                            verdict,
+                            timeMs,
+                            memoryKb,
+                            errorMsg,
+                            response.getStdout()
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to process recovered result in batch for token {}", result.getJudge0Token(), e);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to recover batch of tokens", e);
         }
-
-        log.debug("Polling Judge0 for stale token: {}", token);
-        Judge0Response response = judge0Client.getSubmission(token);
-
-        if (response == null || response.getStatus() == null) {
-            resultProcessor.processRecoveredResult(
-                    result,
-                    Verdict.RUNTIME_ERROR,
-                    null,
-                    null,
-                    "Judge0 has no record for this submission",
-                    ""
-            );
-            return;
-        }
-
-        int statusId = response.getStatus().getId();
-
-        if (statusId <= 2) {
-            log.debug("Token {} still processing at Judge0 (status={}), will retry", token, statusId);
-            return;
-        }
-
-        Verdict verdict = ResultProcessor.mapVerdict(statusId);
-        if (verdict == null) verdict = Verdict.RUNTIME_ERROR;
-
-        Double timeMs = response.getTime() != null ? response.getTime() * 1000 : null;
-        Double memoryKb = response.getMemory() != null ? response.getMemory().doubleValue() : null;
-
-        String errorMsg = null;
-        if (verdict != Verdict.ACCEPTED) {
-            errorMsg = response.getCompile_output();
-            if (errorMsg == null) errorMsg = response.getStderr();
-            if (errorMsg == null) errorMsg = response.getMessage();
-        }
-
-        resultProcessor.processRecoveredResult(
-                result,
-                verdict,
-                timeMs,
-                memoryKb,
-                errorMsg,
-                response.getStdout()
-        );
     }
 }

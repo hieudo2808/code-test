@@ -41,6 +41,9 @@ public class SubmissionDispatcher implements InitializingBean {
     private final PlatformTransactionManager transactionManager;
     private TransactionTemplate transactionTemplate;
 
+    @org.springframework.beans.factory.annotation.Qualifier("ioExecutor")
+    private final java.util.concurrent.Executor ioExecutor;
+
     @Override
     public void afterPropertiesSet() {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -67,10 +70,10 @@ public class SubmissionDispatcher implements InitializingBean {
             List<Testcase> testcases = testcaseRepository.findByProblemProblemId(problem.getProblemId());
 
             List<CompletableFuture<String>> inputFutures = testcases.stream()
-                    .map(tc -> CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getInputPath())))
+                    .map(tc -> CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getInputPath()), ioExecutor))
                     .toList();
             List<CompletableFuture<String>> expectedOutputFutures = testcases.stream()
-                    .map(tc -> CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getOutputPath())))
+                    .map(tc -> CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getOutputPath()), ioExecutor))
                     .toList();
             
             CompletableFuture.allOf(inputFutures.toArray(new CompletableFuture[0])).join();
@@ -122,6 +125,7 @@ public class SubmissionDispatcher implements InitializingBean {
                             .submission(sub)
                             .testcase(finalTestcases.get(i))
                             .judge0Token(finalTokens.get(i))
+                            .dispatchedAt(java.time.OffsetDateTime.now())
                             .build();
                     resultRepository.save(result);
                 }

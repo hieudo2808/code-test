@@ -27,7 +27,7 @@ public class ResultProcessor {
 
     @Transactional
     public void processCallback(Judge0CallbackPayload payload) {
-        SubmissionResult result = resultRepository.findByJudge0Token(payload.getToken())
+        SubmissionResult result = resultRepository.findByJudge0TokenForUpdate(payload.getToken())
                 .orElseThrow(() -> {
                     log.warn("Unknown Judge0 token: {}", payload.getToken());
                     return new AppException(ErrorCode.SUBMISSION_NOT_FOUND);
@@ -35,7 +35,8 @@ public class ResultProcessor {
 
         // Idempotency guard: skip if already processed
         if (result.getVerdict() != null) {
-            log.info("[CALLBACK] Skipping duplicate callback for token={}, existing verdict={}", payload.getToken(), result.getVerdict());
+            log.warn("[CALLBACK] Late callback DROPPED for token={}, existing verdict={}, result.dispatchedAt={}, now={}",
+                     payload.getToken(), result.getVerdict(), result.getDispatchedAt(), java.time.OffsetDateTime.now());
             return;
         }
 
@@ -100,14 +101,20 @@ public class ResultProcessor {
      */
     @Transactional
     public void processRecoveredResult(
-            SubmissionResult result,
+            SubmissionResult resultArg,
             Verdict verdict,
             Double timeMs,
             Double memoryKb,
             String errorMessage,
             String stdout
     ) {
-        if (result.getVerdict() != null) return;
+        SubmissionResult result = resultRepository.findByJudge0TokenForUpdate(resultArg.getJudge0Token())
+                .orElse(resultArg);
+
+        if (result.getVerdict() != null) {
+            log.warn("[RECOVER] Recovered result DROPPED: Result already processed for token {}", result.getJudge0Token());
+            return;
+        }
 
         try {
             String userStdout = stdout != null ? stdout : "";

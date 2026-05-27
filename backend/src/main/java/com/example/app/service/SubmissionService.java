@@ -202,6 +202,46 @@ public class SubmissionService {
     }
 
     @Transactional
+    @PreAuthorize("hasAuthority('SUBMISSION_REJUDGE')")
+    public void rejudgeProblem(UUID problemId) {
+        Problem problem = problemRepository.findById(problemId)
+                .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
+
+        if (!canManageProblem(problem)) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        log.info("Rejudging all submissions for problem: {}", problemId);
+        List<Submission> submissions = submissionRepository.findByProblemProblemId(problemId);
+        
+        for (Submission submission : submissions) {
+            if (submission.getSubmissionStatus() == SubmissionStatus.RUNNING ||
+                submission.getSubmissionStatus() == SubmissionStatus.COMPILING) {
+                continue; // Skip already judging
+            }
+            
+            // Clear old results
+            resultRepository.deleteAll(resultRepository.findBySubmissionSubmissionId(submission.getSubmissionId()));
+            
+            // Reset submission
+            submission.setSubmissionStatus(SubmissionStatus.PENDING);
+            submission.setFinalScore(null);
+            submission.setFinalVerdict(null);
+            submission.setTotalTimeMs(null);
+            submission.setPeakMemoryKb(null);
+            submissionRepository.save(submission);
+            
+            final UUID subId = submission.getSubmissionId();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    eventPublisher.publishEvent(new SubmissionCreatedEvent(subId));
+                }
+            });
+        }
+    }
+
+    @Transactional
     @PreAuthorize("hasAuthority('SUBMISSION_READ_ALL')")
     public SubmissionResponse manualGrade(UUID submissionId, ManualGradeRequest request) {
         Submission submission = submissionRepository.findById(submissionId)
@@ -249,6 +289,16 @@ public class SubmissionService {
     private boolean canAccessProblem(Problem problem) {
         return securityHelper.hasAuthority("PROBLEM_CREATE") || 
                securityHelper.isProblemOwner(problem.getProblemId());
+    }
+
+    private boolean canManageProblem(Problem problem) {
+        UUID currentUserId = securityHelper.getCurrentUserId();
+        if (currentUserId == null) return false;
+        
+        if (securityHelper.hasAuthority("USER_MANAGE")) return true;
+        
+        return problem.getProblemCreator() != null
+                && currentUserId.equals(problem.getProblemCreator().getUserId());
     }
 
     private com.example.app.entity.enums.Verdict parseVerdict(String verdict) {

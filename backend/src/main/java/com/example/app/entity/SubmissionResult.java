@@ -4,6 +4,7 @@ import com.example.app.entity.enums.Verdict;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -47,4 +48,7 @@ public class SubmissionResult {
     @Enumerated(EnumType.STRING)
     @Column(name = "verdict", length = 20)
     private Verdict verdict;
+
+    @Column(name = "dispatched_at")
+    private OffsetDateTime dispatchedAt;
 }

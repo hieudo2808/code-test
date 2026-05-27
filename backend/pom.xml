@@ -25,6 +25,14 @@
 		<!-- ==================== CORE ==================== -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 		<dependency>
@@ -105,17 +113,17 @@
 		</dependency>
 
 		<!-- ==================== DATABASE ==================== -->
-		<!-- SQL Server (default) - uncomment the database you need -->
-		<dependency>
-			<groupId>com.microsoft.sqlserver</groupId>
-			<artifactId>mssql-jdbc</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<!-- PostgreSQL -->
+		<!-- PostgreSQL (active for VPS deployment) -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
+		</dependency>
+		<!-- H2 Database for Testing -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
 		</dependency>
 
 		<!-- ==================== UTILITIES ==================== -->
@@ -193,9 +201,9 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<layers>
-						<enabled>true</enabled>
-					</layers>
+				<layers>
+                    <enabled>true</enabled>
+                </layers>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>

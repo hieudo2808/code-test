@@ -32,6 +32,16 @@ public class TestcaseController {
                 .build();
     }
 
+    @PostMapping(value = "/problems/{problemId}/testcases/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<Void> bulkUploadInputs(
+            @PathVariable UUID problemId,
+            @RequestPart("files") List<MultipartFile> files) {
+        testcaseService.bulkUploadInputs(problemId, files);
+        return ApiResponse.<Void>builder()
+                .message("Bulk upload started successfully")
+                .build();
+    }
+
     @GetMapping("/problems/{problemId}/testcases")
     public ApiResponse<List<TestcaseResponse>> getAllTestcases(@PathVariable UUID problemId) {
         return ApiResponse.<List<TestcaseResponse>>builder()

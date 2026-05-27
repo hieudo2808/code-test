@@ -88,6 +88,16 @@ export const problemService = {
         return response.data.result;
     },
 
+    async bulkUploadInputs(problemId: string, files: File[]): Promise<void> {
+        const formData = new FormData();
+        files.forEach((file) => formData.append("files", file));
+        await api.post(`/problems/${problemId}/testcases/bulk`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+    },
+
     async generateOutputs(problemId: string): Promise<void> {
         await api.post(`/problems/${problemId}/generate-outputs`);
     },

@@ -36,6 +36,7 @@ public class TestcaseService {
     private final TestcaseMapper testcaseMapper;
     private final R2StorageService storageService;
     private final SecurityHelper securityHelper;
+    private final OutputGeneratorService outputGeneratorService;
 
     // ==================== CREATE ====================
 
@@ -91,6 +92,57 @@ public class TestcaseService {
         log.info("Created testcase: {} for problem: {}", testcaseId, problemId);
 
         return testcaseMapper.toResponse(saved);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAuthority('TESTCASE_CREATE')")
+    public void bulkUploadInputs(UUID problemId, List<MultipartFile> files) {
+        Problem problem = problemRepository.findById(problemId)
+                .orElseThrow(() -> new AppException(ErrorCode.PROBLEM_NOT_FOUND));
+
+        if (canManageProblem(problem)) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) continue;
+
+            UUID testcaseId = UUID.randomUUID();
+            String inputPath;
+            String outputPath;
+            try {
+                inputPath = storageService.saveTestcaseInput(
+                        problemId, testcaseId,
+                        file.getInputStream(),
+                        file.getSize());
+                
+                outputPath = storageService.saveTestcaseOutput(
+                        problemId, testcaseId,
+                        new java.io.ByteArrayInputStream(new byte[0]),
+                        0);
+            } catch (IOException e) {
+                log.error("Failed to upload testcase input file from bulk upload", e);
+                continue; // Skip failed file
+            }
+
+            Testcase testcase = Testcase.builder()
+                    .testcaseId(testcaseId)
+                    .problem(problem)
+                    .inputPath(inputPath)
+                    .outputPath(outputPath)
+                    .inputSizeKb((int) (file.getSize() / 1024))
+                    .outputSizeKb(0)
+                    .testcasePoint(0.0) // default score 0
+                    .isHidden(true) // default hidden
+                    .build();
+
+            testcaseRepository.save(testcase);
+        }
+
+        syncMaxScore(problem);
+        log.info("Bulk uploaded {} testcases for problem: {}", files.size(), problemId);
+        
+        outputGeneratorService.generateOutputsAsync(problemId);
     }
 
     // ==================== READ ====================
@@ -192,8 +244,8 @@ public class TestcaseService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        String input = storageService.readAsString(testcase.getInputPath());
-        String output = storageService.readAsString(testcase.getOutputPath());
+        String input = storageService.readPreviewAsString(testcase.getInputPath(), 2048);
+        String output = storageService.readPreviewAsString(testcase.getOutputPath(), 2048);
 
         return TestcaseContentResponse.builder()
                 .testcaseId(testcase.getTestcaseId())

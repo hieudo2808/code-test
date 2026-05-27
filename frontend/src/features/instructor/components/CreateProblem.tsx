@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Input, TextArea, LargeTextArea } from "~/components/ui/input";
+import { Input, TextArea } from "~/components/ui/input";
 import { CodeEditor } from "~/components/ui/CodeEditor";
-import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, RefreshCw, Eye, Loader2, Save, Trash2, CheckCircle2, FileText, Lock, Globe } from "lucide-react";
 import {
     problemService,
     CreateProblemRequest,
@@ -11,137 +11,96 @@ import {
 } from "~/services/problemService";
 import { languageService, Language } from "~/services/languageService";
 import { toast } from "sonner";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "~/components/ui/dialog";
+import { Badge } from "~/components/ui/badge";
 
 interface CreateProblemProps {
     onNavigate: (page: string) => void;
     problemId?: string;
 }
 
-type TestcaseMode = "auto" | "manual";
-
 interface Testcase {
-    id?: string;
-    input: string;
-    output: string;
-    mode: TestcaseMode;
+    id: string;
+    inputSizeKb: number;
+    outputSizeKb: number;
     score: number;
     isHidden: boolean;
 }
 
-const TestcaseEditor = React.memo<{
+const TestcaseItem = React.memo<{
     index: number;
     tc: Testcase;
     onUpdate: (index: number, field: keyof Testcase, value: any) => void;
-    onRemove: (index: number) => void;
-}>(({ index, tc, onUpdate, onRemove }) => {
+    onRemove: (id: string) => void;
+    onView: (id: string) => void;
+}>(({ index, tc, onUpdate, onRemove, onView }) => {
     return (
-        <div className="p-4 bg-(--bg-secondary) rounded-lg border border-(--border-color) space-y-4">
-            <div className="flex items-center justify-between">
-                <h4 className="font-medium text-(--text-primary)">
-                    Test Case #{index + 1}{" "}
-                    {tc.id && (
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">
-                            Existing
-                        </span>
-                    )}
-                </h4>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    onClick={() => onRemove(index)}
-                >
-                    <Trash2 className="w-4 h-4" />
-                </Button>
+        <div className="flex items-center justify-between p-4 bg-(--bg-secondary) rounded-lg border border-(--border-color) hover:border-blue-500/50 transition-colors">
+            <div className="flex items-center gap-6">
+                <div className="flex flex-col">
+                    <span className="font-semibold text-(--text-primary)">
+                        Testcase #{index + 1}
+                    </span>
+                    <div className="flex gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs text-(--text-secondary)">
+                            IN: {tc.inputSizeKb || 0} KB
+                        </Badge>
+                        <Badge variant="outline" className="text-xs text-(--text-secondary)">
+                            OUT: {tc.outputSizeKb || 0} KB
+                        </Badge>
+                        {tc.isHidden ? (
+                            <Badge variant="secondary" className="text-xs flex items-center gap-1"><Lock className="w-3 h-3"/> Hidden</Badge>
+                        ) : (
+                            <Badge variant="secondary" className="text-xs flex items-center gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"><Globe className="w-3 h-3"/> Public</Badge>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {tc.id ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <LargeTextArea
-                        label="Input"
-                        value={tc.input}
-                        onChange={(val) => onUpdate(index, "input", val)}
-                        rows={3}
-                    />
-                    <LargeTextArea
-                        label="Expected Output"
-                        value={tc.output}
-                        onChange={(val) => onUpdate(index, "output", val)}
-                        rows={3}
+            <div className="flex items-center gap-4">
+                <div className="w-24">
+                    <Input
+                        label="Score"
+                        type="number"
+                        value={tc.score}
+                        onChange={(e) => onUpdate(index, "score", parseFloat(e.target.value))}
+                        min={0}
                     />
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <LargeTextArea
-                        label="Input"
-                        value={tc.input}
-                        onChange={(val) => onUpdate(index, "input", val)}
-                        placeholder="Enter test case input..."
-                        rows={3}
-                    />
-                    {tc.mode === "manual" ? (
-                        <LargeTextArea
-                            label="Expected Output"
-                            value={tc.output}
-                            onChange={(val) => onUpdate(index, "output", val)}
-                            placeholder="Enter expected output..."
-                            rows={3}
-                        />
-                    ) : (
-                        <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg h-full">
-                            <p className="text-sm text-gray-500 text-center">
-                                Output will be generated using Solution Code on submit
-                            </p>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-6">
-                {!tc.id && (
-                    <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                checked={tc.mode === "manual"}
-                                onChange={() => onUpdate(index, "mode", "manual")}
-                                className="w-4 h-4 text-primary"
-                            />
-                            <span className="text-sm text-(--text-secondary)">Manual Output</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                checked={tc.mode === "auto"}
-                                onChange={() => onUpdate(index, "mode", "auto")}
-                                className="w-4 h-4 text-primary"
-                            />
-                            <span className="text-sm text-(--text-secondary)">
-                                Auto-generate Output
-                            </span>
-                        </label>
-                    </div>
-                )}
-
-                <div className="flex items-center gap-4 ml-auto">
-                    <div className="w-24">
-                        <Input
-                            label="Score"
-                            type="number"
-                            value={tc.score}
-                            onChange={(e) => onUpdate(index, "score", parseFloat(e.target.value))}
-                            min={0}
-                        />
-                    </div>
-                    <label className="flex items-center gap-2 cursor-pointer mt-6">
+                <div className="flex flex-col justify-center h-full mt-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
                         <input
                             type="checkbox"
-                            checked={!tc.isHidden}
-                            onChange={(e) => onUpdate(index, "isHidden", !e.target.checked)}
+                            checked={tc.isHidden}
+                            onChange={(e) => onUpdate(index, "isHidden", e.target.checked)}
                             className="w-4 h-4 text-primary rounded"
                         />
-                        <span className="text-sm text-(--text-secondary)">Visible to students</span>
+                        <span className="text-sm text-(--text-secondary)">Hidden</span>
                     </label>
+                </div>
+                <div className="flex gap-2 mt-6">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onView(tc.id)}
+                        title="View preview"
+                    >
+                        <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        onClick={() => onRemove(tc.id)}
+                        title="Delete testcase"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </Button>
                 </div>
             </div>
         </div>
@@ -176,9 +135,31 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
 
     // Testcases
     const [testcases, setTestcases] = useState<Testcase[]>([]);
-    const [deletedTestcaseIds, setDeletedTestcaseIds] = useState<string[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    
+    // View Modal
+    const [viewData, setViewData] = useState<{ isOpen: boolean; input: string; output: string } | null>(null);
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const maxScore = testcases.reduce((sum, tc) => sum + (tc.score || 0), 0);
+
+    const refreshTestcases = useCallback(async () => {
+        if (!problemId) return;
+        try {
+            const tcs = await problemService.getTestcases(problemId);
+            const mapped = tcs.map((tc: any) => ({
+                id: tc.testcaseId,
+                inputSizeKb: tc.inputSizeKb,
+                outputSizeKb: tc.outputSizeKb,
+                score: tc.testcasePoint,
+                isHidden: tc.isHidden,
+            }));
+            setTestcases(mapped);
+        } catch (e) {
+            console.error("Failed to refresh testcases", e);
+        }
+    }, [problemId]);
 
     useEffect(() => {
         languageService.getLanguages().then(setLanguages).catch(console.error);
@@ -191,9 +172,6 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
         setIsLoading(true);
         try {
             const problem = await problemService.getProblem(id);
-            const tcs = await problemService.getTestcases(id);
-
-            // Access property safely. If 'description' exists use it, else 'problemDescription'
             // @ts-ignore
             const desc = problem.problemDescription || problem.description || "";
 
@@ -209,56 +187,13 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
             setScorerCode(problem.scorerCode || "");
             setScorerLanguageId(problem.scorerLanguageId || 71);
 
-            // Map testcases and fetch content from S3
-            const testcasesWithContent = await Promise.all(
-                tcs.map(async (tc) => {
-                    let input = "";
-                    let output = "";
-                    try {
-                        const content = await problemService.getTestcaseContent(tc.testcaseId);
-                        input = content.input;
-                        output = content.output;
-                    } catch (e) {
-                        console.warn("Failed to fetch testcase content:", tc.testcaseId, e);
-                    }
-                    return {
-                        id: tc.testcaseId,
-                        input,
-                        output,
-                        mode: "manual" as TestcaseMode,
-                        score: tc.testcasePoint,
-                        isHidden: tc.isHidden,
-                    };
-                })
-            );
-            setTestcases(testcasesWithContent);
+            await refreshTestcases();
         } catch (error) {
             console.error("Failed to fetch problem data:", error);
-            // Handle error (notification?)
+            toast.error("Failed to load problem data.");
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const handleAddTestcase = () => {
-        setTestcases([
-            ...testcases,
-            {
-                input: "",
-                output: "",
-                mode: "manual",
-                score: 10,
-                isHidden: false,
-            },
-        ]);
-    };
-
-    const handleRemoveTestcase = (index: number) => {
-        const tc = testcases[index];
-        if (tc.id) {
-            setDeletedTestcaseIds([...deletedTestcaseIds, tc.id]);
-        }
-        setTestcases(testcases.filter((_, i) => i !== index));
     };
 
     const handleUpdateTestcase = useCallback((index: number, field: keyof Testcase, value: any) => {
@@ -269,15 +204,105 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
         });
     }, []);
 
+    const handleRemoveTestcase = async (id: string) => {
+        if (confirm("Are you sure you want to delete this testcase?")) {
+            try {
+                await problemService.deleteTestcase(id);
+                toast.success("Testcase deleted");
+                await refreshTestcases();
+            } catch (e) {
+                toast.error("Failed to delete testcase");
+            }
+        }
+    };
+
+    const handleViewTestcase = async (id: string) => {
+        try {
+            const content = await problemService.getTestcaseContent(id);
+            // The backend returns the full content, but typically preview handles small chunks.
+            // If the content is huge, we slice it here (though in a real scenario backend should slice it, we will just slice it here for safety against rendering massive strings).
+            const MAX_LENGTH = 2000;
+            const inputPreview = content.input.length > MAX_LENGTH 
+                ? content.input.slice(0, MAX_LENGTH) + "\n... (truncated)" 
+                : content.input;
+            const outputPreview = content.output.length > MAX_LENGTH 
+                ? content.output.slice(0, MAX_LENGTH) + "\n... (truncated)" 
+                : content.output;
+            
+            setViewData({
+                isOpen: true,
+                input: inputPreview,
+                output: outputPreview
+            });
+        } catch (e) {
+            toast.error("Failed to load testcase preview");
+        }
+    };
+
+    const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        if (!problemId) return;
+
+        const files = Array.from(e.target.files);
+        setIsUploading(true);
+        toast.info(`Uploading ${files.length} input files...`);
+
+        try {
+            await problemService.bulkUploadInputs(problemId, files);
+            toast.success("Files uploaded successfully. Output generation started in background.");
+            await refreshTestcases();
+        } catch (error) {
+            toast.error("Failed to bulk upload testcases");
+            console.error(error);
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    };
+
+    const handleGenerateOutputs = async () => {
+        if (!problemId) return;
+        setIsGenerating(true);
+        toast.info("Triggered output generation...");
+        try {
+            await problemService.generateOutputs(problemId);
+            toast.success("Output generation queued successfully");
+        } catch (e) {
+            toast.error("Failed to queue output generation");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleSaveTestcasesMetadata = async () => {
+        try {
+            // Update all testcase metadata (score, isHidden) iteratively
+            for (const tc of testcases) {
+                const formData = new FormData();
+                formData.append(
+                    "request",
+                    new Blob(
+                        [JSON.stringify({ testcasePoint: tc.score, isHidden: tc.isHidden })],
+                        { type: "application/json" }
+                    )
+                );
+                await problemService.updateTestcase(tc.id, formData);
+            }
+            toast.success("Testcase settings saved");
+            await refreshTestcases();
+        } catch (e) {
+            toast.error("Failed to save some testcases metadata");
+        }
+    };
+
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
         setIsSubmitting(true);
         try {
-            // 1. Create/Update Problem
-            let savedProblemId = problemId;
-
             if (isEditMode && problemId) {
                 const updatePayload: UpdateProblemRequest = {
                     title,
@@ -287,13 +312,14 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                     isPublic,
                     timeLimit,
                     memoryLimit,
-                    maxScore,
+                    maxScore, // This might not be accurate if we didn't save testcases metadata, but backend calculates it on testcase update anyway
                     solutionCode,
                     solutionLanguageId,
                     scorerCode,
                     scorerLanguageId,
                 };
                 await problemService.updateProblem(problemId, updatePayload);
+                toast.success("Problem updated successfully");
             } else {
                 const createPayload: CreateProblemRequest = {
                     title,
@@ -304,7 +330,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                     isPublic,
                     timeLimit,
                     memoryLimit,
-                    maxScore,
+                    maxScore: 0,
                     solutionCode,
                     solutionLanguageId,
                     scorerCode,
@@ -312,85 +338,16 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                 };
                 const response = await problemService.createProblem(createPayload);
                 // @ts-ignore
-                savedProblemId = response.problemId || response.id;
+                const savedProblemId = response.problemId || response.id;
+                toast.success("Problem created! You can now upload testcases.");
+                onNavigate(`instructor-dashboard`); // Or maybe redirect to edit mode: `edit-problem/${savedProblemId}` (Depends on router which we don't have direct access, returning to dashboard is safe)
             }
-
-            if (!savedProblemId) throw new Error("Problem ID missing after save");
-
-            // 2. Sync Testcases
-            // Handle Deleted
-            for (const deletedId of deletedTestcaseIds) {
-                await problemService.deleteTestcase(deletedId);
-            }
-
-            // Handle Create/Update
-            for (const tc of testcases) {
-                if (tc.id) {
-                    // Update existing
-                    const formData = new FormData();
-                    formData.append(
-                        "request",
-                        new Blob(
-                            [
-                                JSON.stringify({
-                                    testcasePoint: tc.score,
-                                    isHidden: tc.isHidden,
-                                }),
-                            ],
-                            { type: "application/json" }
-                        )
-                    );
-
-                    // Send updated input/output files
-                    if (tc.input !== undefined) {
-                        formData.append("input", new Blob([tc.input], { type: "text/plain" }));
-                    }
-                    if (tc.output !== undefined) {
-                        formData.append("output", new Blob([tc.output], { type: "text/plain" }));
-                    }
-
-                    await problemService.updateTestcase(tc.id, formData);
-                } else {
-                    // Create new
-                    const formData = new FormData();
-                    formData.append(
-                        "request",
-                        new Blob(
-                            [
-                                JSON.stringify({
-                                    testcasePoint: tc.score,
-                                    isHidden: tc.isHidden,
-                                    timeLimit,
-                                    memoryLimit,
-                                }),
-                            ],
-                            { type: "application/json" }
-                        )
-                    );
-
-                    formData.append("input", new Blob([tc.input], { type: "text/plain" }));
-                    if (tc.mode === "auto") {
-                        formData.append("output", new Blob([""], { type: "text/plain" }));
-                    } else {
-                        formData.append("output", new Blob([tc.output], { type: "text/plain" }));
-                    }
-
-                    await problemService.createTestcase(savedProblemId, formData);
-                }
-            }
-
-            // 3. Trigger Output Generation for ANY testcase marked as auto
-            if (solutionCode && testcases.some((tc) => tc.mode === "auto")) {
-                await problemService.generateOutputs(savedProblemId);
-            }
-
-            onNavigate("instructor-dashboard");
         } catch (error) {
             console.error("Failed to save problem:", error);
             toast.error("Failed to save problem. Check console for details.");
-            isSubmittingRef.current = false;
         } finally {
             setIsSubmitting(false);
+            isSubmittingRef.current = false;
         }
     };
 
@@ -419,18 +376,16 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                         </h1>
                         <p className="text-(--text-secondary)">
                             {isEditMode
-                                ? "Update problem details and testcases"
-                                : "Fill in the details below to create a new coding problem"}
+                                ? "Update problem details and manage testcases"
+                                : "Fill in the details below. Save the problem first to add testcases."}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column - Main Content */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Description */}
                     <Card>
                         <CardHeader>
                             <h3 className="text-lg font-semibold text-(--text-primary)">
@@ -448,7 +403,6 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                         </CardBody>
                     </Card>
 
-                    {/* Evaluation & Code */}
                     <Card>
                         <CardHeader>
                             <h3 className="text-lg font-semibold text-(--text-primary)">
@@ -473,18 +427,15 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                                 </div>
                             </div>
 
-                            {/* Solution Code */}
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <label className="text-sm font-medium text-(--text-secondary)">
-                                        Solution Code (Optional)
+                                        Solution Code (Required for auto-generating outputs)
                                     </label>
                                     <select
                                         className="px-2 py-1 text-sm bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
                                         value={solutionLanguageId}
-                                        onChange={(e) =>
-                                            setSolutionLanguageId(Number(e.target.value))
-                                        }
+                                        onChange={(e) => setSolutionLanguageId(Number(e.target.value))}
                                     >
                                         {languages.map((lang) => (
                                             <option key={lang.id} value={lang.id}>
@@ -504,24 +455,18 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                                             ?.monacoLanguage || "python"
                                     }
                                 />
-                                <p className="text-xs text-(--text-tertiary) mt-1">
-                                    Used for auto-generating outputs for testcases.
-                                </p>
                             </div>
 
-                            {/* Heuristic Scorer */}
                             {evaluationType === "HEURISTIC" && (
                                 <div>
                                     <div className="flex items-center justify-between mb-1">
                                         <label className="text-sm font-medium text-(--text-secondary)">
-                                            Custom Scorer
+                                            Custom Scorer Code
                                         </label>
                                         <select
                                             className="px-2 py-1 text-sm bg-(--bg-secondary) border border-(--border-color) rounded-lg text-(--text-primary)"
                                             value={scorerLanguageId}
-                                            onChange={(e) =>
-                                                setScorerLanguageId(Number(e.target.value))
-                                            }
+                                            onChange={(e) => setScorerLanguageId(Number(e.target.value))}
                                         >
                                             {languages.map((lang) => (
                                                 <option key={lang.id} value={lang.id}>
@@ -546,30 +491,86 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                         </CardBody>
                     </Card>
 
-                    {/* Test Cases */}
-                    <Card>
+                    {/* Test Cases Panel */}
+                    <Card className={!isEditMode ? "opacity-50 pointer-events-none" : ""}>
                         <CardHeader>
                             <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-(--text-primary)">
-                                    Test Cases
-                                </h3>
-                                <Button size="sm" onClick={handleAddTestcase}>
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Add Test Case
-                                </Button>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-(--text-primary)">
+                                        Test Cases
+                                    </h3>
+                                    {!isEditMode && (
+                                        <p className="text-sm text-yellow-600 dark:text-yellow-500 mt-1">
+                                            Please create and save the problem first before managing testcases.
+                                        </p>
+                                    )}
+                                </div>
+                                {isEditMode && (
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept=".in,.txt"
+                                            className="hidden"
+                                            ref={fileInputRef}
+                                            onChange={handleBulkUpload}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleGenerateOutputs()}
+                                            disabled={isGenerating}
+                                        >
+                                            {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                            Regenerate Outputs
+                                        </Button>
+                                        <Button 
+                                            size="sm"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploading}
+                                        >
+                                            {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                                            Upload Inputs
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         </CardHeader>
-                        <CardBody className="space-y-6">
-                            {testcases.map((tc, index) => (
-                                <TestcaseEditor
-                                    key={index}
-                                    index={index}
-                                    tc={tc}
-                                    onUpdate={handleUpdateTestcase}
-                                    onRemove={handleRemoveTestcase}
-                                />
-                            ))}
-                        </CardBody>
+                        {isEditMode && (
+                            <CardBody className="space-y-4">
+                                {testcases.length === 0 ? (
+                                    <div className="text-center py-10 border-2 border-dashed border-(--border-color) rounded-lg">
+                                        <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                        <h3 className="text-lg font-medium text-(--text-primary)">No Testcases Found</h3>
+                                        <p className="text-sm text-(--text-secondary) mb-4">Upload your `.in` or `.txt` input files to get started.</p>
+                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                            Select Files
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex justify-end mb-2">
+                                            <Button variant="secondary" size="sm" onClick={handleSaveTestcasesMetadata}>
+                                                <Save className="w-4 h-4 mr-2" />
+                                                Save Settings
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {testcases.map((tc, index) => (
+                                                <TestcaseItem
+                                                    key={tc.id}
+                                                    index={index}
+                                                    tc={tc}
+                                                    onUpdate={handleUpdateTestcase}
+                                                    onRemove={handleRemoveTestcase}
+                                                    onView={handleViewTestcase}
+                                                />
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </CardBody>
+                        )}
                     </Card>
                 </div>
 
@@ -642,7 +643,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                                     Max Score
                                 </label>
                                 <div className="px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-900 dark:text-white font-semibold">
-                                    {maxScore || 0}
+                                    {isEditMode ? (maxScore || 0) : "Auto-calculated from testcases"}
                                 </div>
                             </div>
 
@@ -665,7 +666,7 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                                         {isSubmitting && (
                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                         )}
-                                        {isEditMode ? "Save Changes" : "Create Problem"}
+                                        {isEditMode ? "Save Problem Details" : "Create Problem"}
                                     </Button>
                                 </div>
                             </div>
@@ -673,6 +674,31 @@ export function CreateProblem({ onNavigate, problemId }: CreateProblemProps) {
                     </Card>
                 </div>
             </div>
+
+            {/* Testcase Preview Modal */}
+            <Dialog open={!!viewData} onOpenChange={(open) => !open && setViewData(null)}>
+                <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Testcase Preview</DialogTitle>
+                    </DialogHeader>
+                    {viewData && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto mt-4 p-1 flex-1">
+                            <div>
+                                <h4 className="font-semibold text-sm mb-2 text-(--text-secondary)">Input (first 2KB)</h4>
+                                <pre className="bg-(--bg-secondary) p-4 rounded-lg overflow-auto text-xs font-mono h-[500px] border border-(--border-color) whitespace-pre-wrap">
+                                    {viewData.input || "No input"}
+                                </pre>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-sm mb-2 text-(--text-secondary)">Output (first 2KB)</h4>
+                                <pre className="bg-(--bg-secondary) p-4 rounded-lg overflow-auto text-xs font-mono h-[500px] border border-(--border-color) whitespace-pre-wrap">
+                                    {viewData.output || "No output (or still generating)"}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

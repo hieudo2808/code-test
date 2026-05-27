@@ -111,6 +111,14 @@ public class SubmissionController {
                 .build();
     }
 
+    @PostMapping("/problem/{problemId}/rejudge-all")
+    public ApiResponse<Void> rejudgeAllByProblem(@PathVariable UUID problemId) {
+        submissionService.rejudgeProblem(problemId);
+        return ApiResponse.<Void>builder()
+                .message("Rejudge all submissions triggered successfully")
+                .build();
+    }
+
     @PutMapping("/{submissionId}/grade")
     public ApiResponse<SubmissionResponse> manualGrade(
             @PathVariable UUID submissionId,

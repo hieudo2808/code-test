@@ -27,8 +27,6 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 public class OutputGeneratorService implements org.springframework.beans.factory.InitializingBean {
-    private static final long POLL_TIMEOUT_MS = 300 * 1000L;
-    private static final long POLL_INTERVAL_MS = 1500L;
 
     private final Judge0Client judge0Client;
     private final R2StorageService storageService;
@@ -38,6 +36,9 @@ public class OutputGeneratorService implements org.springframework.beans.factory
     private final NotificationService notificationService;
     private final org.springframework.transaction.PlatformTransactionManager transactionManager;
     private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
+    @org.springframework.beans.factory.annotation.Qualifier("ioExecutor")
+    private final java.util.concurrent.Executor ioExecutor;
 
     @Value("${judge0.callback-url}")
     private String callbackUrl;
@@ -64,7 +65,7 @@ public class OutputGeneratorService implements org.springframework.beans.factory
 
         // Fetch inputs concurrently
         List<java.util.concurrent.CompletableFuture<String>> inputFutures = testcases.stream()
-                .map(tc -> java.util.concurrent.CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getInputPath())))
+                .map(tc -> java.util.concurrent.CompletableFuture.supplyAsync(() -> storageService.readAsString(tc.getInputPath()), ioExecutor))
                 .toList();
 
         java.util.concurrent.CompletableFuture.allOf(inputFutures.toArray(new java.util.concurrent.CompletableFuture[0])).join();

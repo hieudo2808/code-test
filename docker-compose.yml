@@ -1,0 +1,127 @@
+x-logging: &default-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 100M
+
+services:
+  judge0-server:
+    image: hieudo2808/judge0-custom:latest
+    container_name: judge0-server
+    volumes:
+      - ./judge/judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    ports:
+      - "127.0.0.1:2358:2358"
+    privileged: true
+    cgroup: host
+    restart: always
+    <<: *default-logging
+    networks:
+      - codetrials-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  judge0-worker:
+    image: hieudo2808/judge0-custom:latest
+    container_name: judge0-worker
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge/judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    privileged: true
+    cgroup: host
+    restart: always
+    <<: *default-logging
+    networks:
+      - codetrials-network
+    depends_on:
+      - judge0-server
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  plagiarism-worker:
+    build:
+      context: ./plagiarism-worker
+      dockerfile: Dockerfile
+    container_name: plagiarism-worker
+    restart: always
+    <<: *default-logging
+    networks:
+      - codetrials-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: codetrials-backend
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - JAVA_TOOL_OPTIONS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+    depends_on:
+      judge0-server:
+        condition: service_started
+    networks:
+      - codetrials-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/actuator/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    networks:
+      - codetrials-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+
+networks:
+  codetrials-network:
+    driver: bridge

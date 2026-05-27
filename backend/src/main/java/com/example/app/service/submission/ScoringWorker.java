@@ -19,11 +19,16 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScoringWorker {
     private static final String SEPARATOR = "\n---SEPARATOR---\n";
+
+    @Value("${judge0.callback-url}")
+    private String callbackUrl;
 
     private final Judge0Client judge0Client;
     private final SubmissionResultRepository resultRepository;
@@ -53,6 +58,8 @@ public class ScoringWorker {
 
             String scorerInput = testcaseInput + SEPARATOR + userOutput + SEPARATOR + expectedOutput;
 
+            String scorerCallbackUrl = callbackUrl + "/scorer-callback/" + result.getSubmissionResultId();
+
             Judge0Request scorerReq = Judge0Request.builder()
                     .languageId(problem.getScorerLanguageId())
                     .sourceCode(problem.getScorerCode())
@@ -61,47 +68,21 @@ public class ScoringWorker {
                     .wallTimeLimit(20.0)
                     .memoryLimit(256000)
                     .redirectStderrToStdout(true)
+                    .callbackUrl(scorerCallbackUrl)
                     .build();
 
-            var scorerResult = judge0Client.submitSync(scorerReq, 30);
-
-            double score = 0.0;
-            String message = "Scorer error";
-            Verdict verdict = Verdict.FAILED;
-
-            if (scorerResult.getStatus() != null && scorerResult.getStatus().getId() == 3
-                    && scorerResult.getStdout() != null) {
-                String[] lines = scorerResult.getStdout().split("\n");
-                for (String line : lines) {
-                    if (line.startsWith("score:")) {
-                        score = Double.parseDouble(line.substring(6).trim());
-                    } else if (line.startsWith("message:")) {
-                        message = line.substring(8).trim();
-                    }
-                }
-
-                if (score >= 1.0) {
-                    verdict = Verdict.ACCEPTED;
-                } else if (score > 0) {
-                    verdict = Verdict.PARTIAL;
-                }
-            }
-
-            result.setVerdict(verdict);
-            result.setScore(score * result.getTestcase().getTestcasePoint());
-            result.setErrorMessage(message);
-            resultRepository.save(result);
+            // Submit asynchronously
+            judge0Client.submitBatch(java.util.List.of(scorerReq));
+            log.info("[SCORER] Submitted async scoring job for resultId={}", result.getSubmissionResultId());
 
         } catch (Exception e) {
-            log.error("[SCORER] FAILED for submissionId={}, resultId={}: {}",
+            log.error("[SCORER] FAILED to submit for submissionId={}, resultId={}: {}",
                     event.submissionId(), event.submissionResultId(), e.getMessage(), e);
             result.setVerdict(Verdict.FAILED);
             result.setScore(0.0);
-            result.setErrorMessage("Scorer execution failed: " + ResultProcessor.truncate(e.getMessage()));
+            result.setErrorMessage("Scorer submission failed: " + ResultProcessor.truncate(e.getMessage()));
             resultRepository.save(result);
+            eventPublisher.publishEvent(new JudgeResultReceivedEvent(event.submissionId()));
         }
-
-        eventPublisher.publishEvent(new JudgeResultReceivedEvent(event.submissionId()));
     }
-
 }

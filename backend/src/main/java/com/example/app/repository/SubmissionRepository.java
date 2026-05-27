@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +25,8 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     Optional<Submission> findForUpdate(@Param("id") UUID id);
 
     Page<Submission> findBySubmitterUserId(UUID submitterId, Pageable pageable);
+
+    List<Submission> findByProblemProblemId(UUID problemId);
 
     Page<Submission> findByProblemProblemId(UUID problemId, Pageable pageable);
 
@@ -59,7 +62,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     // Instructor: contest submissions with filters
     @Query("SELECT s FROM Submission s WHERE s.contest.contestId = :contestId" +
            " AND (:problemId IS NULL OR s.problem.problemId = :problemId)" +
-           " AND (:submitterName IS NULL OR LOWER(s.submitter.fullName) LIKE LOWER(CONCAT('%', :submitterName, '%')))" +
+           " AND (:submitterName IS NULL OR LOWER(s.submitter.fullName) LIKE LOWER(CONCAT('%', CAST(:submitterName AS string), '%')))" +
            " AND (:verdict IS NULL OR s.finalVerdict = :verdict)")
     Page<Submission> searchContestSubmissions(@Param("contestId") UUID contestId,
                                               @Param("problemId") UUID problemId,
@@ -70,7 +73,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     // Instructor: problem submissions with filters
     @Query("SELECT s FROM Submission s WHERE s.problem.problemId = :problemId" +
            " AND s.contest IS NULL" +
-           " AND (:submitterName IS NULL OR LOWER(s.submitter.fullName) LIKE LOWER(CONCAT('%', :submitterName, '%')))" +
+           " AND (:submitterName IS NULL OR LOWER(s.submitter.fullName) LIKE LOWER(CONCAT('%', CAST(:submitterName AS string), '%')))" +
            " AND (:verdict IS NULL OR s.finalVerdict = :verdict)")
     Page<Submission> searchProblemSubmissions(@Param("problemId") UUID problemId,
                                               @Param("submitterName") String submitterName,

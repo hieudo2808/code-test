@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -57,15 +57,13 @@ export function ProblemSubmissionsPage() {
         title: string;
     } | null>(null);
 
-    useEffect(() => {
-        if (!problemId) return;
-        problemService.getProblem(problemId).then(setProblem).catch(console.error);
-    }, [problemId]);
+    const [rejudgeAllModal, setRejudgeAllModal] = useState(false);
+    const [isRejudgingAll, setIsRejudgingAll] = useState(false);
 
-    const loadSubmissions = useCallback(async () => {
+    const loadSubmissions = useCallback(async (silent = false) => {
         if (!problemId) return;
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const data = await submissionService.searchProblemSubmissions(
                 problemId,
                 {
@@ -81,9 +79,34 @@ export function ProblemSubmissionsPage() {
         } catch (err) {
             console.error("Failed to load submissions:", err);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [problemId, page, filterSubmitterId, filterVerdict]);
+
+    // Auto-refresh polling
+    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const hasActiveSubmissions = submissions.some(
+        (s) => s.status === "PENDING" || s.status === "JUDGING"
+    );
+
+    useEffect(() => {
+        if (hasActiveSubmissions) {
+            pollingRef.current = setInterval(() => {
+                loadSubmissions(true);
+            }, 5000);
+        }
+        return () => {
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+            }
+        };
+    }, [hasActiveSubmissions, loadSubmissions]);
+
+    useEffect(() => {
+        if (!problemId) return;
+        problemService.getProblem(problemId).then(setProblem).catch(console.error);
+    }, [problemId]);
 
     useEffect(() => {
         loadSubmissions();
@@ -120,6 +143,22 @@ export function ProblemSubmissionsPage() {
             toast.error("Không thể chấm lại bài nộp này.");
         } finally {
             setRejudgeModal(null);
+        }
+    };
+
+    const handleRejudgeAll = async () => {
+        if (!problemId) return;
+        setIsRejudgingAll(true);
+        try {
+            await submissionService.rejudgeAll(problemId);
+            toast.success("Đã đưa toàn bộ bài nộp vào hàng đợi chấm lại.");
+            loadSubmissions();
+        } catch (error) {
+            console.error("Failed to rejudge all:", error);
+            toast.error("Không thể chấm lại toàn bộ bài nộp.");
+        } finally {
+            setIsRejudgingAll(false);
+            setRejudgeAllModal(false);
         }
     };
 
@@ -181,14 +220,30 @@ export function ProblemSubmissionsPage() {
             </nav>
 
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Bài nộp — {problem?.title ?? "..."}
-                </h1>
-                <p className="text-gray-500 dark:text-gray-400 mt-1">
-                    {totalElements} bài nộp (chỉ bài nộp luyện tập, không bao gồm bài nộp trong cuộc
-                    thi)
-                </p>
+            <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Bài nộp — {problem?.title ?? "..."}
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                        {totalElements} bài nộp (chỉ bài nộp luyện tập, không bao gồm bài nộp trong cuộc
+                        thi)
+                        {hasActiveSubmissions && (
+                            <span className="inline-flex items-center gap-1.5 ml-3 text-xs text-orange-600 dark:text-orange-400 font-medium">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Đang chấm — tự động làm mới
+                            </span>
+                        )}
+                    </p>
+                </div>
+                <Button 
+                    variant="outline" 
+                    className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={() => setRejudgeAllModal(true)}
+                >
+                    <RefreshCcw className="w-4 h-4 mr-2" />
+                    Chấm lại toàn bộ
+                </Button>
             </div>
 
             {/* Filters */}
@@ -411,6 +466,31 @@ export function ProblemSubmissionsPage() {
                     <p className="text-gray-700 dark:text-gray-300">
                         Bạn có chắc chắn muốn chấm lại <strong>{rejudgeModal.title}</strong> không? 
                         Hành động này sẽ xóa kết quả khối lượng cũ và đưa vào hàng đợi chờ chấm lại.
+                    </p>
+                </Modal>
+            )}
+
+            {/* Rejudge All Modal */}
+            {rejudgeAllModal && (
+                <Modal
+                    isOpen={rejudgeAllModal}
+                    onClose={() => !isRejudgingAll && setRejudgeAllModal(false)}
+                    title="Chấm lại toàn bộ bài nộp"
+                    footer={
+                        <>
+                            <Button variant="outline" onClick={() => setRejudgeAllModal(false)} disabled={isRejudgingAll}>
+                                Hủy
+                            </Button>
+                            <Button variant="primary" onClick={handleRejudgeAll} disabled={isRejudgingAll}>
+                                {isRejudgingAll ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                Chấm lại toàn bộ
+                            </Button>
+                        </>
+                    }
+                >
+                    <p className="text-gray-700 dark:text-gray-300">
+                        Bạn có chắc chắn muốn chấm lại toàn bộ bài nộp của bài toán này không? Quá trình này có thể mất nhiều thời gian nếu có nhiều bài nộp. 
+                        Toàn bộ kết quả cũ sẽ bị xóa và các bài nộp sẽ chuyển về trạng thái chờ chấm.
                     </p>
                 </Modal>
             )}

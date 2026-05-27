@@ -79,6 +79,7 @@ public class R2StorageService {
         return s3Client.getObject(request);
     }
 
+    @org.springframework.cache.annotation.CacheEvict(value = "testcaseData", key = "#path")
     public void delete(String path) {
         try {
             DeleteObjectRequest request = DeleteObjectRequest.builder()
@@ -138,6 +139,12 @@ public class R2StorageService {
         return String.format("problems/%s/testcases/%s/%s", problemId, testcaseId, filename);
     }
 
+    @org.springframework.cache.annotation.CacheEvict(value = "testcaseData", key = "#path")
+    public void evictCache(String path) {
+        log.debug("Evicted cache for path: {}", path);
+    }
+
+    @org.springframework.cache.annotation.Cacheable(value = "testcaseData", key = "#path")
     public String readAsString(String path) {
         try (InputStream is = getFile(path)) {
             if (is == null) return "";
@@ -148,6 +155,25 @@ public class R2StorageService {
             return "";
         } catch (Exception e) {
             log.error("Failed to read R2 file as string: {}", path, e);
+            return "";
+        }
+    }
+
+    public String readPreviewAsString(String path, int maxBytes) {
+        try (InputStream is = getFile(path)) {
+            if (is == null) return "";
+            byte[] bytes = is.readNBytes(maxBytes);
+            String content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            if (is.available() > 0 || bytes.length == maxBytes) {
+                // If there's more data to be read or we read exactly maxBytes, append a note
+                content += "\n... (truncated for preview)";
+            }
+            return content;
+        } catch (NoSuchKeyException e) {
+            log.debug("R2 file not found (expected): {}", path);
+            return "";
+        } catch (Exception e) {
+            log.error("Failed to read R2 file preview: {}", path, e);
             return "";
         }
     }

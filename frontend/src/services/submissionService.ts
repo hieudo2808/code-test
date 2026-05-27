@@ -138,4 +138,8 @@ export const submissionService = {
         const response = await api.post(`/submissions/${submissionId}/rejudge`);
         return response.data.result;
     },
+
+    async rejudgeAll(problemId: string): Promise<void> {
+        await api.post(`/submissions/problem/${problemId}/rejudge-all`);
+    },
 };
